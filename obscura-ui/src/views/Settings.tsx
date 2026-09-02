@@ -1,15 +1,16 @@
-import { Accordion, ActionIcon, Alert, Button, Card, Checkbox, Divider, Group, Radio, Stack, Switch, Text, Title, useMantineColorScheme } from '@mantine/core';
+import { Accordion, ActionIcon, Alert, Button, Card, Checkbox, Divider, Group, Modal, PasswordInput, Radio, Stack, Switch, Text, Title, useMantineColorScheme } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import React, { ReactNode, useContext, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BsCircleHalf } from 'react-icons/bs';
-import { IoCheckmark, IoHelpCircleOutline, IoInformationCircleOutline, IoMoon, IoSunnySharp } from 'react-icons/io5';
+import { IoCheckmark, IoHelpCircleOutline, IoInformationCircleOutline, IoLockClosedOutline, IoMoon, IoSunnySharp } from 'react-icons/io5';
 import { MdBlock, MdWarning } from 'react-icons/md';
 import * as commands from '../bridge/commands';
 import { PLATFORM, Platform } from '../bridge/SystemProvider';
 import { DNS_OPTIONS_WEBPAGE } from '../common/accountUtils';
 import { AppContext, DNSContentBlock, featureFlagEnabled, FeatureFlagKey, KnownFeatureFlagKey } from '../common/appContext';
 import commonClasses from '../common/common.module.css';
+import { useDnsLock } from '../common/dnsLock';
 import { NotificationId } from '../common/notifIds';
 import { useAsync } from '../common/useAsync';
 import { normalizeError } from '../common/utils';
@@ -41,6 +42,11 @@ function DnsSettings() {
   /* no "Use system DNS" on Android (see applyNetworkConfig in ObscuraVpnService.kt) */
   const SUPPORTS_DNS_SELECTION = !IS_ANDROID && !IS_WINDOWS;
 
+  const dnsLock = useDnsLock();
+  const [setupModalOpen, setSetupModalOpen] = useState(false);
+  const [disableModalOpen, setDisableModalOpen] = useState(false);
+  const isLockedNow = dnsLock.isConfigured && dnsLock.isLocked;
+
   const onBlockChange = (key: keyof DNSContentBlock, e: React.ChangeEvent<HTMLInputElement>) => {
     const checked = e.currentTarget.checked;
     const newBlock = { ...dnsContentBlock, [key]: checked };
@@ -68,28 +74,197 @@ function DnsSettings() {
             <IoHelpCircleOutline size='1.5em' />
           </ActionIcon>
         </Group>
-        {SUPPORTS_DNS_SELECTION ? (
-          <Radio.Group value={useSystemDns ? 'system' : 'obscura'} onChange={(val) => commands.setUseSystemDns(val === 'system')}>
-            <Stack gap='sm'>
-              <Radio value="obscura" label={t('dnsModeObscura')} />
-              <Stack gap='xs' ml='xl'>{checkboxes}</Stack>
-              <Radio
-                value="system"
-                label={t(IS_LINUX ? 'dnsModeSystemLinux' : 'dnsModeSystemApple')}
-                description={t('dnsModeSystemDescription')}
-              />
-            </Stack>
-          </Radio.Group>
+
+        {isLockedNow ? (
+          <DnsLockPrompt onUnlock={dnsLock.unlock} />
         ) : (
-          <Stack gap='xs'>{checkboxes}</Stack>
+          <>
+            {SUPPORTS_DNS_SELECTION ? (
+              <Radio.Group value={useSystemDns ? 'system' : 'obscura'} onChange={(val) => commands.setUseSystemDns(val === 'system')}>
+                <Stack gap='sm'>
+                  <Radio value="obscura" label={t('dnsModeObscura')} />
+                  <Stack gap='xs' ml='xl'>{checkboxes}</Stack>
+                  <Radio
+                    value="system"
+                    label={t(IS_LINUX ? 'dnsModeSystemLinux' : 'dnsModeSystemApple')}
+                    description={t('dnsModeSystemDescription')}
+                  />
+                </Stack>
+              </Radio.Group>
+            ) : (
+              <Stack gap='xs'>{checkboxes}</Stack>
+            )}
+          </>
         )}
+
         {IS_ANDROID && osStatus.privateDnsActive && (
           <Alert icon={<MdWarning />} color='orange' variant='light'>
             {t('androidPrivateDnsAlert')}
           </Alert>
         )}
+
+        <Divider w='100%' />
+
+        <Group justify='space-between' wrap='nowrap'>
+          <div>
+            <Text size='sm' fw={500}>Password protect DNS settings</Text>
+            <Text size='xs' c='dimmed'>Require a password to change DNS settings on this device.</Text>
+          </div>
+          <Switch
+            checked={dnsLock.isConfigured}
+            disabled={isLockedNow}
+            onChange={(e) => {
+              if (e.currentTarget.checked) setSetupModalOpen(true);
+              else setDisableModalOpen(true);
+            }}
+          />
+        </Group>
+
+        {dnsLock.isConfigured && !isLockedNow && (
+          <Group gap='xs'>
+            <Button variant='subtle' size='xs' leftSection={<IoLockClosedOutline />} onClick={dnsLock.lock}>
+              Lock now
+            </Button>
+            <Button variant='subtle' size='xs' onClick={() => setSetupModalOpen(true)}>
+              Change password
+            </Button>
+          </Group>
+        )}
       </Stack>
+
+      <DnsLockSetupModal
+        opened={setupModalOpen}
+        isChangingExisting={dnsLock.isConfigured}
+        onClose={() => setSetupModalOpen(false)}
+        onSubmit={async (password) => {
+          await dnsLock.setPassword(password);
+          setSetupModalOpen(false);
+        }}
+      />
+      <DnsLockDisableModal
+        opened={disableModalOpen}
+        onClose={() => setDisableModalOpen(false)}
+        onSubmit={dnsLock.disableLock}
+        onSuccess={() => setDisableModalOpen(false)}
+      />
     </Card>
+  );
+}
+
+function DnsLockPrompt({ onUnlock }: { onUnlock: (password: string) => Promise<boolean> }) {
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const tryUnlock = async () => {
+    const ok = await onUnlock(password);
+    if (ok) {
+      setPassword('');
+      setError(null);
+    } else {
+      setError('Incorrect password');
+    }
+  };
+
+  return (
+    <Stack gap='xs' align='flex-start' w='100%'>
+      <Group gap='xs'>
+        <IoLockClosedOutline size='1.25em' />
+        <Text size='sm'>DNS settings are locked.</Text>
+      </Group>
+      <Group gap='xs' w='100%' wrap='nowrap'>
+        <PasswordInput
+          placeholder='Password'
+          value={password}
+          onChange={(e) => { setPassword(e.currentTarget.value); setError(null); }}
+          error={error}
+          onKeyDown={(e) => { if (e.key === 'Enter') tryUnlock(); }}
+          style={{ flexGrow: 1 }}
+        />
+        <Button onClick={tryUnlock}>Unlock</Button>
+      </Group>
+    </Stack>
+  );
+}
+
+function DnsLockSetupModal({ opened, isChangingExisting, onClose, onSubmit }: {
+  opened: boolean;
+  isChangingExisting: boolean;
+  onClose: () => void;
+  onSubmit: (password: string) => Promise<void>;
+}) {
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const mismatch = confirm.length > 0 && password !== confirm;
+
+  const reset = () => { setPassword(''); setConfirm(''); };
+
+  return (
+    <Modal opened={opened} onClose={() => { reset(); onClose(); }} title={isChangingExisting ? 'Change DNS lock password' : 'Set DNS lock password'}>
+      <Stack>
+        {!isChangingExisting && (
+          <Alert color='yellow' variant='light'>
+            There's no password recovery for this. If it's forgotten, the DNS lock can only be removed by resetting the app's local data.
+          </Alert>
+        )}
+        <PasswordInput label='Password' value={password} onChange={(e) => setPassword(e.currentTarget.value)} autoFocus />
+        <PasswordInput
+          label='Confirm password'
+          value={confirm}
+          onChange={(e) => setConfirm(e.currentTarget.value)}
+          error={mismatch ? "Passwords don't match" : undefined}
+        />
+        <Group justify='flex-end'>
+          <Button variant='default' onClick={onClose}>Cancel</Button>
+          <Button
+            disabled={password.length < 8 || mismatch}
+            onClick={async () => { await onSubmit(password); reset(); }}
+          >
+            Save
+          </Button>
+        </Group>
+      </Stack>
+    </Modal>
+  );
+}
+
+function DnsLockDisableModal({ opened, onClose, onSubmit, onSuccess }: {
+  opened: boolean;
+  onClose: () => void;
+  onSubmit: (password: string) => Promise<boolean>;
+  onSuccess: () => void;
+}) {
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  return (
+    <Modal
+      opened={opened}
+      onClose={() => { setPassword(''); setError(null); onClose(); }}
+      title="Turn off DNS lock"
+    >
+      <Stack>
+        <Text size='sm'>Enter the current password to turn off DNS protection.</Text>
+        <PasswordInput
+          value={password}
+          onChange={(e) => { setPassword(e.currentTarget.value); setError(null); }}
+          error={error}
+          autoFocus
+        />
+        <Group justify='flex-end'>
+          <Button variant='default' onClick={onClose}>Cancel</Button>
+          <Button
+            color='red'
+            onClick={async () => {
+              const ok = await onSubmit(password);
+              if (ok) { setPassword(''); onSuccess(); }
+              else setError('Incorrect password');
+            }}
+          >
+            Turn off
+          </Button>
+        </Group>
+      </Stack>
+    </Modal>
   );
 }
 
