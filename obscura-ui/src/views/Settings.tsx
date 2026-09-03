@@ -177,6 +177,7 @@ function DnsLockPrompt({ onUnlock }: { onUnlock: (password: string) => Promise<b
           value={password}
           onChange={(e) => { setPassword(e.currentTarget.value); setError(null); }}
           error={error}
+          autoComplete='current-password'
           onKeyDown={(e) => { if (e.key === 'Enter') tryUnlock(); }}
           style={{ flexGrow: 1 }}
         />
@@ -206,12 +207,13 @@ function DnsLockSetupModal({ opened, isChangingExisting, onClose, onSubmit }: {
             There's no password recovery for this. If it's forgotten, the DNS lock can only be removed by resetting the app's local data.
           </Alert>
         )}
-        <PasswordInput label='Password' value={password} onChange={(e) => setPassword(e.currentTarget.value)} autoFocus />
+        <PasswordInput label='Password' value={password} onChange={(e) => setPassword(e.currentTarget.value)} autoFocus autoComplete='new-password' />
         <PasswordInput
           label='Confirm password'
           value={confirm}
           onChange={(e) => setConfirm(e.currentTarget.value)}
           error={mismatch ? "Passwords don't match" : undefined}
+          autoComplete='new-password'
         />
         <Group justify='flex-end'>
           <Button variant='default' onClick={onClose}>Cancel</Button>
@@ -249,6 +251,7 @@ function DnsLockDisableModal({ opened, onClose, onSubmit, onSuccess }: {
           onChange={(e) => { setPassword(e.currentTarget.value); setError(null); }}
           error={error}
           autoFocus
+          autoComplete='current-password'
         />
         <Group justify='flex-end'>
           <Button variant='default' onClick={onClose}>Cancel</Button>

@@ -37,7 +37,7 @@ async function deriveHash(password: string, salt: Uint8Array): Promise<ArrayBuff
   const enc = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
   return crypto.subtle.deriveBits(
-    { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+    { name: 'PBKDF2', salt: salt as BufferSource, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
     keyMaterial,
     HASH_BITS,
   );
@@ -55,7 +55,7 @@ async function verifyPassword(password: string, stored: StoredDnsLockSecret): Pr
   const expected = fromBase64(stored.hashB64);
   if (attempt.length !== expected.length) return false;
   let diff = 0;
-  for (let i = 0; i < attempt.length; i++) diff |= attempt[i] ^ expected[i];
+  for (let i = 0; i < attempt.length; i++) diff |= attempt[i]! ^ expected[i]!;
   return diff === 0;
 }
 
