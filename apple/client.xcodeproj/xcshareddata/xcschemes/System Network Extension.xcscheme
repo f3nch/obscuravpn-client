@@ -16,7 +16,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "3098C18D2B921489008877AA"
-               BuildableName = "net.obscura.vpn-client-app.system-network-extension.systemextension"
+               BuildableName = "net.f3nch.vpn-client-app.system-network-extension.systemextension"
                BlueprintName = "System Network Extension"
                ReferencedContainer = "container:client.xcodeproj">
             </BuildableReference>
@@ -51,7 +51,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "3098C18D2B921489008877AA"
-            BuildableName = "net.obscura.vpn-client-app.system-network-extension.systemextension"
+            BuildableName = "net.f3nch.vpn-client-app.system-network-extension.systemextension"
             BlueprintName = "System Network Extension"
             ReferencedContainer = "container:client.xcodeproj">
          </BuildableReference>

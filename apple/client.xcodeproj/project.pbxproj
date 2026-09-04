@@ -53,7 +53,7 @@
 		3098C18F2B921489008877AA /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 30761C362B6EB1F900E5F60D /* NetworkExtension.framework */; };
 		3098C1922B921489008877AA /* PacketTunnelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3098C1912B921489008877AA /* PacketTunnelProvider.swift */; };
 		3098C1942B921489008877AA /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3098C1932B921489008877AA /* main.swift */; };
-		3098C1992B921489008877AA /* net.obscura.vpn-client-app.system-network-extension.systemextension in Embed System Extensions */ = {isa = PBXBuildFile; fileRef = 3098C18E2B921489008877AA /* net.obscura.vpn-client-app.system-network-extension.systemextension */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		3098C1992B921489008877AA /* net.f3nch.vpn-client-app.system-network-extension.systemextension in Embed System Extensions */ = {isa = PBXBuildFile; fileRef = 3098C18E2B921489008877AA /* net.f3nch.vpn-client-app.system-network-extension.systemextension */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		309B467D2C4C152900A1B00F /* StringError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 309B467C2C4C152900A1B00F /* StringError.swift */; };
 		309B467E2C4C152900A1B00F /* StringError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 309B467C2C4C152900A1B00F /* StringError.swift */; };
 		309BA90A2C443978000A7428 /* RustFfi.swift in Sources */ = {isa = PBXBuildFile; fileRef = 309BA9072C44394E000A7428 /* RustFfi.swift */; };
@@ -236,7 +236,7 @@
 			dstPath = "$(SYSTEM_EXTENSIONS_FOLDER_PATH)";
 			dstSubfolderSpec = 16;
 			files = (
-				3098C1992B921489008877AA /* net.obscura.vpn-client-app.system-network-extension.systemextension in Embed System Extensions */,
+				3098C1992B921489008877AA /* net.f3nch.vpn-client-app.system-network-extension.systemextension in Embed System Extensions */,
 			);
 			name = "Embed System Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -293,7 +293,7 @@
 		3096E0212BDC1FFB0026DE7F /* ScriptMessageHandlers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScriptMessageHandlers.swift; sourceTree = "<group>"; };
 		3096E03F2BEFC6770026DE7F /* command.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = command.swift; sourceTree = "<group>"; };
 		3096E0452BF0F5860026DE7F /* app_state.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = app_state.swift; sourceTree = "<group>"; };
-		3098C18E2B921489008877AA /* net.obscura.vpn-client-app.system-network-extension.systemextension */ = {isa = PBXFileReference; explicitFileType = "wrapper.system-extension"; includeInIndex = 0; path = "net.obscura.vpn-client-app.system-network-extension.systemextension"; sourceTree = BUILT_PRODUCTS_DIR; };
+		3098C18E2B921489008877AA /* net.f3nch.vpn-client-app.system-network-extension.systemextension */ = {isa = PBXFileReference; explicitFileType = "wrapper.system-extension"; includeInIndex = 0; path = "net.f3nch.vpn-client-app.system-network-extension.systemextension"; sourceTree = BUILT_PRODUCTS_DIR; };
 		3098C1912B921489008877AA /* PacketTunnelProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PacketTunnelProvider.swift; sourceTree = "<group>"; };
 		3098C1932B921489008877AA /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		3098C1952B921489008877AA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -475,7 +475,7 @@
 			isa = PBXGroup;
 			children = (
 				30761C1E2B6EB17100E5F60D /* Obscura VPN (Debug).app */,
-				3098C18E2B921489008877AA /* net.obscura.vpn-client-app.system-network-extension.systemextension */,
+				3098C18E2B921489008877AA /* net.f3nch.vpn-client-app.system-network-extension.systemextension */,
 				30920D932C3D51EC008690C3 /* App Network Extension.appex */,
 				30497E5E2D9EC038008B22F9 /* Tests.xctest */,
 				A98F1BD82DADFF17007F04D3 /* Obscura VPN iOS.app */,
@@ -802,7 +802,7 @@
 			);
 			name = "System Network Extension";
 			productName = "system-network-extension";
-			productReference = 3098C18E2B921489008877AA /* net.obscura.vpn-client-app.system-network-extension.systemextension */;
+			productReference = 3098C18E2B921489008877AA /* net.f3nch.vpn-client-app.system-network-extension.systemextension */;
 			productType = "com.apple.product-type.system-extension";
 		};
 		A98F1B9D2DADFF17007F04D3 /* Obscura VPN iOS */ = {
@@ -1168,7 +1168,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 5G943LR562;
+				DEVELOPMENT_TEAM = 3DKFZZ2M38;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
 					"$(inherited)",
@@ -1189,7 +1189,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 5G943LR562;
+				DEVELOPMENT_TEAM = 3DKFZZ2M38;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.2;
 				MARKETING_VERSION = 1.0;
@@ -1261,8 +1261,11 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "client/client-macos.entitlements";
+				CODE_SIGN_IDENTITY = "Developer ID Application: REDACTED (3DKFZZ2M38)";
+				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"client/Preview Content\"";
+				DEVELOPMENT_TEAM = 3DKFZZ2M38;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1271,6 +1274,7 @@
 				);
 				OBSCURA_MAGIC_NO_NIX = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "Developer ID: VPN Client App (f3nch)";
 				SDKROOT = macosx;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -1281,6 +1285,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = C96FFC952C3DD5DC00D87937 /* Debug-app-network-extension.xcconfig */;
 			buildSettings = {
+				DEVELOPMENT_TEAM = 3DKFZZ2M38;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1306,7 +1311,7 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = 5G943LR562;
+				DEVELOPMENT_TEAM = 3DKFZZ2M38;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1331,6 +1336,9 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = C96FFC902C3DD2FD00D87937 /* Release-system-network-extension.xcconfig */;
 			buildSettings = {
+				CODE_SIGN_IDENTITY = "Developer ID Application: REDACTED (3DKFZZ2M38)";
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = 3DKFZZ2M38;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSSystemExtensionUsageDescription = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1343,6 +1351,7 @@
 					"$(PROJECT_DIR)/libobscuravpn_client",
 				);
 				PRODUCT_NAME = "$(inherited)";
+				PROVISIONING_PROFILE_SPECIFIER = "Developer ID: System Network Extension (f3nch)";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -1415,9 +1424,11 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "client/client-macos.entitlements";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"client/Preview Content\"";
-				DEVELOPMENT_TEAM = 5G943LR562;
+				DEVELOPMENT_TEAM = 3DKFZZ2M38;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1426,6 +1437,7 @@
 				);
 				OBSCURA_MAGIC_NO_NIX = "";
 				PRODUCT_NAME = "$(TARGET_NAME) (Debug)";
+				PROVISIONING_PROFILE_SPECIFIER = "Developer ID: VPN Client App (f3nch)";
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG LOAD_DEV_SERVER";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -1437,6 +1449,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = C96FFC8F2C3DD2FD00D87937 /* Debug-system-network-extension.xcconfig */;
 			buildSettings = {
+				DEVELOPMENT_TEAM = 3DKFZZ2M38;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSSystemExtensionUsageDescription = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1449,6 +1462,7 @@
 					"$(PROJECT_DIR)/libobscuravpn_client",
 				);
 				PRODUCT_NAME = "$(inherited)";
+				PROVISIONING_PROFILE_SPECIFIER = "Developer ID: System Network Extension (f3nch)";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -1465,6 +1479,7 @@
 				CODE_SIGN_ENTITLEMENTS = "client/client-ios.entitlements";
 				COMBINE_HIDPI_IMAGES = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"client/Preview Content\"";
+				DEVELOPMENT_TEAM = 3DKFZZ2M38;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = client/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Obscura VPN";
@@ -1502,7 +1517,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"client/Preview Content\"";
-				DEVELOPMENT_TEAM = 5G943LR562;
+				DEVELOPMENT_TEAM = 3DKFZZ2M38;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = client/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Obscura VPN";

@@ -341,7 +341,7 @@ private class DebugBundleBuilder {
                         "neagent",
                         "nehelper",
                         "nesessionmanager",
-                        "net.obscura.vpn-client-app.system-network-extension",
+                        "net.f3nch.vpn-client-app.system-network-extension",
                         "sysextd" }
                     || subsystem IN {
                         "com.apple.networkextension",

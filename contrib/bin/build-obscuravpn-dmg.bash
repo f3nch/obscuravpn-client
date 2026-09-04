@@ -9,7 +9,7 @@ if [ "$#" -ne 0 ]; then
 fi
 
 KEYCHAIN_PROFILE="notarytool-password"
-CERT='Developer ID Application: Sovereign Engineering Inc. (5G943LR562)'
+CERT='Developer ID Application: REDACTED (3DKFZZ2M38)'
 
 APP_NAME="Obscura VPN"
 APP_BASENAME="$APP_NAME.app"
