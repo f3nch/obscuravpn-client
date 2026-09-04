@@ -2,6 +2,33 @@
 
 Obscura VPN library, CLI client, and App
 
+## About This Fork
+
+This is f3nch's personal fork of
+[Sovereign-Engineering/obscuravpn-client](https://github.com/Sovereign-Engineering/obscuravpn-client),
+the official Obscura VPN client.
+
+Only the macOS app has been tested. This fork is provided as-is, with no guarantee of
+stability, security, or effectiveness of any feature it adds — use at your own risk.
+
+For day-to-day maintenance of this fork specifically — syncing with upstream, running
+pre-build checks, building/testing a dev version, and producing a signed release — see
+[`FORK_RUNBOOK.md`](FORK_RUNBOOK.md).
+
+Everything below this section is upstream's original documentation. Much of it (account
+logins, certificate handoff, publishing infrastructure) is written for Sovereign Engineering's
+own internal team and doesn't apply to this fork, but it's kept as-is for reference.
+
+## Changelog
+
+Changes made in this fork, relative to upstream.
+
+- **DNS lock** — an optional password requirement to change DNS settings on macOS. The
+  password's salt and hash are stored via the native Rust core (persisted in `config.json`,
+  which is root/admin-owned and shared machine-wide) rather than browser `localStorage`, so
+  the lock applies across every macOS account on the machine and can't be bypassed by a
+  non-admin user simply clearing the app's local data.
+
 ## Support
 
 No support is provided for this code directly. However, if you are experiencing issues with your Obscura VPN service please contact <support@obscura.net>.
