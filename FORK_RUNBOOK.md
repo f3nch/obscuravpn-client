@@ -262,8 +262,10 @@ day-to-day testing (that's the Dev Client above).
   Application", `Provisioning Profile Specifier` = your exact profile name (type it directly
   rather than using the Signing & Capabilities picker, which can be unreliable), `Development
   Team` = your team ID.
-- `contrib/bin/build-obscuravpn-dmg.bash` — the `CERT` variable should be your own
-  certificate's exact name. Find it with:
+- `contrib/bin/build-obscuravpn-dmg.bash` doesn't need editing — it looks up your "Developer
+  ID Application" identity from the keychain automatically. If you have more than one such
+  identity installed, it uses whichever one `security find-identity` lists first, so check
+  which that'll be (and remove any you don't want picked) with:
   ```bash
   security find-identity -v -p codesigning
   ```

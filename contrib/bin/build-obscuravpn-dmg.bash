@@ -9,7 +9,10 @@ if [ "$#" -ne 0 ]; then
 fi
 
 KEYCHAIN_PROFILE="notarytool-password"
-CERT='Developer ID Application: REDACTED (3DKFZZ2M38)'
+CERT=$(security find-identity -v -p codesigning | awk -F'"' '/Developer ID Application/ {print $2; exit}')
+if [ -z "$CERT" ]; then
+	die "No 'Developer ID Application' signing identity found in the keychain."
+fi
 
 APP_NAME="Obscura VPN"
 APP_BASENAME="$APP_NAME.app"
