@@ -221,6 +221,9 @@ impl ClientStateHandle {
                         cached_auth_token: auth_token.map(Into::into),
                         old_account_ids,
                         in_new_account_flow: config.in_new_account_flow,
+                        // DNS lock is a device-level setting, not account-specific; preserve it across logout.
+                        dns_lock_salt: config.dns_lock_salt.take(),
+                        dns_lock_hash: config.dns_lock_hash.take(),
                         ..Default::default()
                     }
                 } else {
@@ -376,6 +379,39 @@ impl ClientStateHandle {
 
     pub fn set_tailscale_bypass(&self, enable: bool) {
         self.change_config(|config| config.tailscale_bypass = if enable { TailscaleBypass::Enabled } else { TailscaleBypass::Disabled })
+    }
+
+    /// Sets (or overwrites) the DNS lock password. The plaintext password is never persisted;
+    /// only its PBKDF2 salt and hash are stored in `Config`.
+    pub fn set_dns_lock_password(&self, password: &str) {
+        let hashed = crate::dns_lock::hash_password(password);
+        self.change_config(|config| {
+            config.dns_lock_salt = Some(hashed.salt_b64);
+            config.dns_lock_hash = Some(hashed.hash_b64);
+        })
+    }
+
+    /// Verifies a DNS lock password attempt against the stored hash. Returns `true` if no
+    /// DNS lock is currently configured, matching the "nothing to unlock" case.
+    pub fn verify_dns_lock_password(&self, password: &str) -> bool {
+        let config = self.borrow();
+        match (&config.config.dns_lock_salt, &config.config.dns_lock_hash) {
+            (Some(salt), Some(hash)) => crate::dns_lock::verify_password(password, salt, hash),
+            _ => true,
+        }
+    }
+
+    /// Clears the DNS lock, but only if the given password matches the currently stored one.
+    /// Returns whether the lock was cleared.
+    pub fn disable_dns_lock(&self, password: &str) -> bool {
+        if !self.verify_dns_lock_password(password) {
+            return false;
+        }
+        self.change_config(|config| {
+            config.dns_lock_salt = None;
+            config.dns_lock_hash = None;
+        });
+        true
     }
 
     pub async fn connect(

@@ -204,6 +204,7 @@ export interface AppStatus {
     useSystemDns: boolean,
     localNetworkAccess: boolean,
     tailscaleBypass: boolean,
+    dnsLockConfigured: boolean,
 }
 
 interface IAppContext {

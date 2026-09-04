@@ -294,6 +294,18 @@ export async function setDnsContentBlock(value: DNSContentBlock): Promise<void> 
   await jsonFfiCmd('setDnsContentBlock', { value });
 }
 
+export async function setDnsLockPassword(password: string): Promise<void> {
+  await jsonFfiCmd('setDnsLockPassword', { password });
+}
+
+export async function verifyDnsLockPassword(password: string): Promise<boolean> {
+  return await jsonFfiCmd('verifyDnsLockPassword', { password }) as boolean;
+}
+
+export async function disableDnsLock(password: string): Promise<boolean> {
+  return await jsonFfiCmd('disableDnsLock', { password }) as boolean;
+}
+
 export async function getSubscriptionProductDisplay(): Promise<SubscriptionProductModel> {
   return await invoke('getSubscriptionProduct') as SubscriptionProductModel;
 }

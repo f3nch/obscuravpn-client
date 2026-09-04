@@ -70,6 +70,7 @@ pub struct Status {
     pub local_network_access: bool,
     pub tailscale_bypass: bool,
     pub dns_content_block: DnsContentBlock,
+    pub dns_lock_configured: bool,
 }
 
 impl Status {
@@ -87,6 +88,7 @@ impl Status {
             dns_content_block,
             local_network_access,
             tailscale_bypass,
+            dns_lock_salt,
             ..
         } = client_state.config();
         let api_url = client_state.base_url();
@@ -107,6 +109,7 @@ impl Status {
             local_network_access: local_network_access.is_enabled(),
             tailscale_bypass: tailscale_bypass.is_enabled(),
             dns_content_block: *dns_content_block,
+            dns_lock_configured: dns_lock_salt.is_some(),
         }
     }
 }
@@ -403,9 +406,8 @@ impl Manager {
         })
     }
 
-    pub fn run_on_client_state(&self, f: impl FnOnce(&ClientStateHandle)) -> Result<ManagerCmdOk, ManagerCmdErrorCode> {
-        f(&self.client_state);
-        Ok(ManagerCmdOk::Empty)
+    pub fn run_on_client_state<T: Into<ManagerCmdOk>>(&self, f: impl FnOnce(&ClientStateHandle) -> T) -> Result<ManagerCmdOk, ManagerCmdErrorCode> {
+        Ok(f(&self.client_state).into())
     }
 }
 

@@ -205,6 +205,18 @@ pub enum ManagerCmd {
     SetTailscaleBypass {
         enable: bool,
     },
+    SetDnsLockPassword {
+        #[debug("[REDACTED]")]
+        password: String,
+    },
+    VerifyDnsLockPassword {
+        #[debug("[REDACTED]")]
+        password: String,
+    },
+    DisableDnsLock {
+        #[debug("[REDACTED]")]
+        password: String,
+    },
 }
 
 #[derive(Debug, derive_more::From, Serialize)]
@@ -218,6 +230,8 @@ pub enum ManagerCmdOk {
     ApiGetAccountInfo(AccountInfo),
     #[from]
     ApiGoogleBillingDetails(GoogleBillingDetailsOutput),
+    #[from]
+    Bool(bool),
     CreateDebugBundle(String),
     CreateServiceDebugBundle(ServiceDebugBundleHandle),
     Empty,
@@ -333,6 +347,9 @@ impl ManagerCmd {
             Self::SetUseSystemDns { enable } => manager.run_on_client_state(|c| c.set_use_system_dns(enable)),
             Self::SetLocalNetworkAccess { enable } => manager.run_on_client_state(|c| c.set_local_network_access(enable)),
             Self::SetTailscaleBypass { enable } => manager.run_on_client_state(|c| c.set_tailscale_bypass(enable)),
+            Self::SetDnsLockPassword { password } => manager.run_on_client_state(|c| c.set_dns_lock_password(&password)),
+            Self::VerifyDnsLockPassword { password } => manager.run_on_client_state(|c| c.verify_dns_lock_password(&password)),
+            Self::DisableDnsLock { password } => manager.run_on_client_state(|c| c.disable_dns_lock(&password)),
         }
     }
 }

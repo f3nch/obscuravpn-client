@@ -38,11 +38,11 @@ export default function Settings() {
 function DnsSettings() {
   const { t } = useTranslation();
   const { appStatus, osStatus } = useContext(AppContext);
-  const { dnsContentBlock, useSystemDns } = appStatus;
+  const { dnsContentBlock, useSystemDns, dnsLockConfigured } = appStatus;
   /* no "Use system DNS" on Android (see applyNetworkConfig in ObscuraVpnService.kt) */
   const SUPPORTS_DNS_SELECTION = !IS_ANDROID && !IS_WINDOWS;
 
-  const dnsLock = useDnsLock();
+  const dnsLock = useDnsLock(dnsLockConfigured);
   const [setupModalOpen, setSetupModalOpen] = useState(false);
   const [disableModalOpen, setDisableModalOpen] = useState(false);
   const isLockedNow = dnsLock.isConfigured && dnsLock.isLocked;

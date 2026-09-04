@@ -286,6 +286,12 @@ pub struct Config {
     pub cached_account_status: Option<AccountStatus>,
     #[serde(skip)]
     pub force_tcp_tls_relay_transport: (), // Removed
+    /// Base64-encoded PBKDF2-HMAC-SHA256 salt for the DNS lock password. Never sent to the UI.
+    #[serde(deserialize_with = "crate::serde_safe::deserialize")]
+    pub dns_lock_salt: Option<String>,
+    /// Base64-encoded PBKDF2-HMAC-SHA256 hash for the DNS lock password. Never sent to the UI.
+    #[serde(deserialize_with = "crate::serde_safe::deserialize")]
+    pub dns_lock_hash: Option<String>,
 }
 
 impl Config {
@@ -336,6 +342,7 @@ pub struct ConfigDebug {
     pub has_account_id: bool,
     pub has_cached_auth_token: bool,
     pub auto_connect: bool,
+    pub dns_lock_configured: bool,
 }
 
 impl From<Config> for ConfigDebug {
@@ -369,6 +376,8 @@ impl From<Config> for ConfigDebug {
             force_tcp_tls_relay_transport: (),
             tunnel_active,
             tunnel_args,
+            dns_lock_salt,
+            dns_lock_hash: _,
         } = config;
         Self {
             api_url,
@@ -392,6 +401,7 @@ impl From<Config> for ConfigDebug {
             auto_connect,
             tunnel_active,
             tunnel_args,
+            dns_lock_configured: dns_lock_salt.is_some(),
         }
     }
 }

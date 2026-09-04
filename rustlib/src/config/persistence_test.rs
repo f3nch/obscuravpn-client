@@ -177,6 +177,8 @@ fn test_ignore_invalid_fields() {
         feature_flags: Default::default(),
         force_tcp_tls_relay_transport: (),
         dns_content_block: Default::default(),
+        dns_lock_salt: Some("c2FsdA==".into()),
+        dns_lock_hash: Some("aGFzaA==".into()),
     };
     let example_json = match serde_json::to_value(&example_config).unwrap() {
         serde_json::Value::Object(m) => m,
