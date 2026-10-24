@@ -23,6 +23,22 @@ own internal team and doesn't apply to this fork, but it's kept as-is for refere
 
 Changes made in this fork, relative to upstream.
 
+### v1.184-f3nch.3
+
+- **United Kingdom only**: the Location page and the connection screen's location picker now
+  list only United Kingdom servers. The Location page's search, "Last chosen", "Pinned" and
+  per-continent sections are gone.
+- **Quick connect removed** from the connection screen and the Location page, so every
+  connection goes to a chosen UK location.
+- Connecting to a UK city, or to the UK itself, no longer asks for the location lock password.
+- The menu bar toggle still reconnects to the last location, or to the best available server if
+  there isn't one, and isn't limited to the UK.
+
+### v1.184-f3nch.2
+
+- **Location lock**: when a DNS lock password is set, connecting to a VPN location from the app
+  asks for that password first. It reuses the DNS lock's password and its Rust-side check.
+
 ### v1.184-f3nch.1
 
 - Synced with upstream v1.184, plus four later upstream commits including the NNN
