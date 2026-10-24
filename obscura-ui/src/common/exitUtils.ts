@@ -1,4 +1,4 @@
-import { ExitSelectorCity } from '../bridge/commands';
+import { ExitSelector, ExitSelectorCity } from '../bridge/commands';
 import { PinnedLocation } from '../common/appContext';
 import { Exit, getContinent, getExitCountry } from './api';
 
@@ -44,6 +44,13 @@ export const ALLOWED_COUNTRY = 'GB';
 
 export function isAllowedLocation(loc: { country_code: string }): boolean {
   return loc.country_code.toUpperCase() === ALLOWED_COUNTRY;
+}
+
+/** True when the selector can only reach an allowed exit: a UK city, or the UK itself. */
+export function isAllowedSelector(exit: ExitSelector): boolean {
+  if ('city' in exit) return isAllowedLocation(exit.city);
+  if ('country' in exit) return isAllowedLocation(exit.country);
+  return false;
 }
 
 export function exitCityEquals(left?: ExitSelectorCity, right?: ExitSelectorCity): boolean {

@@ -1,9 +1,9 @@
 // obscura-ui/src/common/locationLock.tsx
 //
 // Password prompt guarding VPN location changes. Reuses the DNS lock password
-// (see dnsLock.ts): when a DNS lock is configured, connecting from the UI —
-// quick connect or picking a location — requires that password. Verification
-// happens in Rust via the bridge.
+// (see dnsLock.ts): when a DNS lock is configured, connecting from the UI to
+// anywhere other than a UK city or the UK itself requires that password.
+// Verification happens in Rust via the bridge.
 
 import { Button, Group, PasswordInput, Stack } from '@mantine/core';
 import { modals } from '@mantine/modals';

@@ -12,6 +12,7 @@ import { HAS_NE_VPN_STATUS, IS_HANDHELD_DEVICE, logReactError, PLATFORM, Platfor
 import { AppContext, AppStatus, ConnectionInProgress, connectionIsIdle, getEffectiveOsStatus, latestAppStatus, linuxDegradation, NavigationView, NEVPNStatus, OsStatus, OsStatusWVpnStatus, windowsDegradation } from './common/appContext';
 import commonClasses from './common/common.module.css';
 import { ServiceStatusOutput } from './common/api';
+import { isAllowedSelector } from './common/exitUtils';
 import { fmt } from './common/fmt';
 import { confirmLocationPassword } from './common/locationLock';
 import { NotificationId } from './common/notifIds';
@@ -75,7 +76,8 @@ export default function () {
   const { execute: disconnect } = commands.useCommand({ command: commands.disconnect, showNotification: true, rethrow: true });
 
   async function tryConnect(exit: commands.ExitSelector) {
-    if (appStatus?.dnsLockConfigured) {
+    // UK connections never need the password; anything else does when the lock is set.
+    if (appStatus?.dnsLockConfigured && !isAllowedSelector(exit)) {
       if (!(await confirmLocationPassword())) return;
     }
     setInitiatingExitSelector(exit);
