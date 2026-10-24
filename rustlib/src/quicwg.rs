@@ -41,6 +41,7 @@ use crate::net::NetworkInterface;
 use crate::net::new_nonblocking_tcp;
 use crate::tokio::AbortOnDrop;
 use crate::wake_instant::WakeInstant;
+use crate::wg_control_message_header::{WgControlMessageHeader, WgMessageDirection};
 
 const WG_FIRST_HANDSHAKE_RESENDS: usize = 25; // 2.5s per handshake.
 const WG_FIRST_HANDSHAKE_TIMEOUT: Duration = Duration::from_millis(100);
@@ -97,10 +98,14 @@ pub enum QuicWgConnectError {
     QuicConfig(quinn::ConnectError),
     #[error("quic connect: {0}")]
     TransportConnect(io::Error),
+    #[error("timeout {0}")]
+    Timeout(&'static str),
     #[error("relay handshake: {0}")]
     RelayHandshake(#[from] QuicWgRelayHandshakeError),
     #[error("wireguard handshake: {0}")]
     WireguardHandshake(QuicWgWireguardHandshakeError),
+    #[error("first pong: {0}")]
+    FirstPong(QuicWgReceiveError),
 }
 
 #[derive(Debug, Error)]
@@ -203,6 +208,11 @@ pub enum TransportKind {
     TcpTls,
 }
 
+enum Received {
+    Packet(Bytes),
+    Pong,
+}
+
 #[derive(Clone)]
 pub struct QuicWgConnPacketSender(Weak<QuicWgConn>);
 
@@ -250,7 +260,7 @@ impl QuicWgConn {
             fragmenter: Default::default(),
             fragment_buffer: WgFragmentBuffer::new(WG_FRAGMENT_BUFFER_LEN, WG_FRAGMENT_MAX_SIZE),
         });
-        Ok(Self {
+        let conn = Self {
             wg_receiver,
             wg_sender,
             wg_state,
@@ -258,7 +268,20 @@ impl QuicWgConn {
             exit_public_key,
             _tcp_tls_sender_abort: tcp_tls_sender_abort,
             _quic_control_stream: quic_control_stream,
-        })
+        };
+        conn.wait_for_first_pong().await.map_err(QuicWgConnectError::FirstPong)?;
+        Ok(conn)
+    }
+
+    async fn wait_for_first_pong(&self) -> Result<(), QuicWgReceiveError> {
+        loop {
+            match self.receive_packet_or_pong().await? {
+                Received::Pong => return Ok(()),
+                Received::Packet(packet) => {
+                    tracing::warn!(message_id = "fP3mWq8Z", len = packet.len(), "dropping packet received before first pong")
+                }
+            }
+        }
     }
 
     fn build_first_wg_handshake_init(wg: &mut Tunn) -> Result<Bytes, QuicWgWireguardHandshakeError> {
@@ -282,6 +305,9 @@ impl QuicWgConn {
                     .receive_wg_message()
                     .await
                     .map_err(QuicWgWireguardHandshakeError::RespMessageReceiveError)?;
+                if let Some(header) = WgControlMessageHeader::parse(&datagram) {
+                    header.log(WgMessageDirection::Received);
+                }
                 loop {
                     let res = wg.decapsulate(None, &datagram, &mut buf);
                     match Self::handle_result(wg_sender, res) {
@@ -310,6 +336,9 @@ impl QuicWgConn {
         let mut resends = resends;
         loop {
             resends -= 1;
+            if let Some(header) = WgControlMessageHeader::parse(&handshake_init) {
+                header.log(WgMessageDirection::Sent);
+            }
             wg_sender.send_wg_message(handshake_init.clone());
             match Self::wait_for_first_handshake_response(wg, wg_receiver, wg_sender).await {
                 Ok(()) => return Ok(()),
@@ -335,6 +364,9 @@ impl QuicWgConn {
         match res {
             TunnResult::Done => ControlFlow::Break(None),
             TunnResult::WriteToNetwork(wg_message) => {
+                if let Some(header) = WgControlMessageHeader::parse(wg_message) {
+                    header.log(WgMessageDirection::Sent);
+                }
                 wg_sender.send_wg_message(Bytes::copy_from_slice(wg_message));
                 ControlFlow::Continue(())
             }
@@ -373,6 +405,9 @@ impl QuicWgConn {
             TunnResult::Done => tracing::error!(message_id = "10g8g1D1", "WG encapsulate did not yield a datagram to send"),
             TunnResult::Err(error) => tracing::warn!(message_id = "MAvGA9tf", ?error, "wireguard error"),
             TunnResult::WriteToNetwork(wg_message) => {
+                if let Some(header) = WgControlMessageHeader::parse(wg_message) {
+                    header.log(WgMessageDirection::Sent);
+                }
                 wg_state.tick_stats.wg_tx_count += 1;
                 let wg_message = Bytes::copy_from_slice(wg_message);
                 let (first, second) = match self.wg_sender.max_wg_message_size() {
@@ -391,6 +426,15 @@ impl QuicWgConn {
     }
 
     pub async fn receive(&self) -> Result<Bytes, QuicWgReceiveError> {
+        loop {
+            match self.receive_packet_or_pong().await? {
+                Received::Packet(packet) => return Ok(packet),
+                Received::Pong => {}
+            }
+        }
+    }
+
+    async fn receive_packet_or_pong(&self) -> Result<Received, QuicWgReceiveError> {
         loop {
             let next_liveness_poll;
             let next_wg_timers_tick;
@@ -438,6 +482,9 @@ impl QuicWgConn {
                         }
                     };
                     tick_stats.wg_rx_count += 1;
+                    if let Some(header) = WgControlMessageHeader::parse(&wg_message) {
+                        header.log(WgMessageDirection::Received);
+                    }
                     loop {
                         let res = wg.decapsulate(None, &wg_message, buffer);
                         if let TunnResult::WriteToNetwork(..) = &res {
@@ -455,9 +502,9 @@ impl QuicWgConn {
                                 traffic_stats.rx_bytes += usize_into_u64(packet.len());
                                 if let Some(latest_latency) = liveness_checker.process_potential_probe_response(&packet) {
                                     traffic_stats.latest_latency_ms = u16::try_from(latest_latency.as_millis()).unwrap_or(u16::MAX);
-                                    break
+                                    return Ok(Received::Pong)
                                 }
-                                return Ok(packet)
+                                return Ok(Received::Packet(packet))
                             },
                             ControlFlow::Break(None) => break,
                         }
@@ -523,8 +570,15 @@ impl QuicWgConnHandshaking {
         let connecting = quic_endpoint
             .connect_with(quic_config.clone(), relay_addr, relay_sni)
             .map_err(QuicWgConnectError::QuicConfig)?;
-        let connection = connecting.await.map_err(io::Error::other).map_err(QuicWgConnectError::TransportConnect)?;
-        let (send, recv) = connection.open_bi().await.map_err(QuicWgRelayHandshakeError::ControlStreamInitError)?;
+        let connection = timeout(QUIC_STEP_TIMEOUT, connecting)
+            .await
+            .map_err(|_| QuicWgConnectError::Timeout("quic connect"))?
+            .map_err(io::Error::other)
+            .map_err(QuicWgConnectError::TransportConnect)?;
+        let (send, recv) = timeout(QUIC_STEP_TIMEOUT, connection.open_bi())
+            .await
+            .map_err(|_| QuicWgRelayHandshakeError::Timeout("opening control stream"))?
+            .map_err(QuicWgRelayHandshakeError::ControlStreamInitError)?;
         let mut this = Self { relay_id, port, transport: Transport::Quic { conn: connection, send, recv } };
         this.exchange_protocol_identifiers().await?;
         Ok(this)
@@ -538,7 +592,10 @@ impl QuicWgConnHandshaking {
         relay_sni: &str,
     ) -> Result<Self, QuicWgConnectError> {
         let tcp_socket = new_nonblocking_tcp(network_interface).map_err(QuicWgConnectError::TransportConnect)?;
-        let tcp_stream = tcp_socket.connect(relay_addr).await.map_err(QuicWgConnectError::TransportConnect)?;
+        let tcp_stream = timeout(QUIC_STEP_TIMEOUT, tcp_socket.connect(relay_addr))
+            .await
+            .map_err(|_| QuicWgConnectError::Timeout("tcp connect"))?
+            .map_err(QuicWgConnectError::TransportConnect)?;
         if let Err(error) = tcp_stream.set_nodelay(true) {
             tracing::warn!(message_id = "k9KRCm3G", ?error, "failed to set tcp nodelay");
         }
@@ -548,9 +605,9 @@ impl QuicWgConnHandshaking {
             .try_into()
             .map_err(Into::into)
             .map_err(QuicWgConnectError::CryptoConfig)?;
-        let tls_stream = tls_connector
-            .connect(server_name, tcp_stream)
+        let tls_stream = timeout(QUIC_STEP_TIMEOUT, tls_connector.connect(server_name, tcp_stream))
             .await
+            .map_err(|_| QuicWgConnectError::Timeout("tls handshake"))?
             .map_err(QuicWgConnectError::TransportConnect)?;
         let mut this = Self { relay_id, port: relay_addr.port(), transport: Transport::TcpTls(tls_stream) };
         this.exchange_protocol_identifiers().await?;
@@ -558,6 +615,14 @@ impl QuicWgConnHandshaking {
     }
 
     async fn exchange_protocol_identifiers(&mut self) -> Result<(), QuicWgRelayHandshakeError> {
+        let inner = self.exchange_protocol_identifiers_no_timeout();
+        timeout(QUIC_STEP_TIMEOUT, inner)
+            .await
+            .map_err(|_| QuicWgRelayHandshakeError::Timeout("exchanging protocol identifiers"))
+            .flatten()
+    }
+
+    async fn exchange_protocol_identifiers_no_timeout(&mut self) -> Result<(), QuicWgRelayHandshakeError> {
         let mut buffer = PROTOCOL_IDENTIFIER.to_be_bytes();
         match &mut self.transport {
             Transport::Quic { send, recv, .. } => {

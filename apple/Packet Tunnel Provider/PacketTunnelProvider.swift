@@ -54,6 +54,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
 
         self.nwPathMonitor.pathUpdateHandler = { path in
             ffiLog(.Info, "NWPathMonitor event: \(path.debugDescription)")
+            ffiLog(.Info, "NWPath availableInterfaces: [\(path.availableInterfaces.map { "\($0.name) (index: \($0.index), type: \($0.type))" }.joined(separator: ", "))]")
             if path.status != .satisfied {
                 ffiLog(.Info, "network path not satisfied")
                 rustFfi.setNetworkInterface(.none)
@@ -378,7 +379,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     }
 }
 
-// `done` is always non-null, but cbindgen can't emit _Nonnull for function pointers in typedefs.
+/// `done` is always non-null, but cbindgen can't emit _Nonnull for function pointers in typedefs.
 private func setNetworkConfigCallback(networkConfigJson: FfiBytes, context: UnsafeMutableRawPointer?, done: (@convention(c) (UnsafeMutableRawPointer?, Bool) -> Void)!) {
     guard let inst = PacketTunnelProvider.shared else {
         ffiLog(.Error, "setNetworkConfigCallback called with no active PacketTunnelProvider")

@@ -11,6 +11,7 @@ enum Command: Codable {
     case stopTunnel
     case setStrictLeakPrevention(enable: Bool)
     case setColorScheme(value: AppAppearance)
+    case setNavigationView(view: AppView)
     case debugBundle(userFeedback: String?)
     case revealItemInDir(path: String)
     case emailDebugBundle(path: String, subject: String, body: String)
@@ -51,18 +52,40 @@ extension CommandHandler {
                 throw errorCodeOther
             }
         case .setColorScheme(let colorScheme):
-            DispatchQueue.main.async {
-                StartupModel.shared.selectedAppearance = colorScheme
+            _ = appState.osStatus.update { value in
+                value.colorScheme = colorScheme
+                value.version = UUID()
             }
 
-            // When setting color scheme to no preference (nil),
-            //  only the header changes appearance immediately
-            // This bug is applicable to iOS 18 & macOS Sequoia:
-            //  https://developer.apple.com/forums/thread/677212?answerId=805661022#805661022
-
-            // Setting to nil a second time results in the expected visual change
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
+            DispatchQueue.main.async {
                 StartupModel.shared.selectedAppearance = colorScheme
+                #if os(macOS)
+                    (NSApp.delegate as? AppDelegate)?.applySelectedAppearance()
+                #endif
+            }
+
+            #if !os(macOS)
+                // When setting color scheme to no preference (nil),
+                //  only the header changes appearance immediately
+                // This bug is applicable to iOS 18 & macOS Sequoia:
+                //  https://developer.apple.com/forums/thread/677212?answerId=805661022#805661022
+
+                // Setting to nil a second time results in the expected visual change
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
+                    StartupModel.shared.selectedAppearance = colorScheme
+                }
+            #endif
+        case .setNavigationView(let view):
+            let view = switch view {
+            // The Help view isn't used on iOS
+            #if os(iOS)
+                case .help:
+                    AppView.about
+            #endif
+            default: view
+            }
+            DispatchQueue.main.async {
+                self.appState.webviewsController.tab = view
             }
         case .jsonFfiCmd(cmd: let jsonCmd, let timeoutMs):
             let attemptTimeout: Duration? = switch timeoutMs {
@@ -104,7 +127,7 @@ extension CommandHandler {
                 appState.updater.showUpdaterIfNeeded()
         #else
             case .associateAccount:
-                try await appState.associateAccount()
+                _ = try await appState.associateAccount()
             case .purchaseSubscription:
                 let result = try await appState.purchaseSubscription()
                 return try result.json()

@@ -25,6 +25,11 @@ class ObscuraUIWebView: WKWebView {
         #endif
         super.init(frame: .zero, configuration: webConfiguration)
         self.navigationDelegate = appState.webviewsController
+        #if DEBUG
+            if #available(iOS 16.4, macOS 13.3, *) {
+                self.isInspectable = true
+            }
+        #endif
 
         #if LOAD_DEV_SERVER
             let urlRequest = URLRequest(url: URL(string: "http://localhost:1420/")!)
@@ -48,22 +53,14 @@ class ObscuraUIWebView: WKWebView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    func navigateTo(view: AppView) {
-        self.evaluateJavaScript(
-            ObscuraUIWebView.generateNavEventJS(viewName: view.ipcValue)
-        )
+    func navigateTo(appState: AppState, view: AppView) {
+        _ = appState.osStatus.update { value in
+            value.navigationView = view
+            value.version = UUID()
+        }
         #if !os(macOS)
             self.scrollView.bounces = view.needsScroll
         #endif
-    }
-
-    static func generateNavEventJS(viewName: String) -> String {
-        // reuse the variable `__WK_WEBKIT_NAV_EVENT__`
-        let jsDispatchNavUpdateStr = """
-        __WEBKIT_NAV_EVENT__ = new CustomEvent("navUpdate", { detail: "\(viewName)" });
-        window.dispatchEvent(__WEBKIT_NAV_EVENT__);
-        """
-        return jsDispatchNavUpdateStr
     }
 
     func handlePaymentSucceeded() {

@@ -52,6 +52,7 @@ pub async fn populate_debug_tasks(dir: &Utf8Path, side: DebugBundleSide, backend
     for (name, url) in [
         ("http-obscura-backend-sni-apple", "https://apple.com/api/ping"),
         ("http-obscura-backend-sni-google", "https://google.com/api/ping"),
+        ("http-obscura-backend-check", "https://v1.api.prod.obscura.net/api/check"),
     ] {
         add_task(
             &mut tasks,
@@ -60,6 +61,44 @@ pub async fn populate_debug_tasks(dir: &Utf8Path, side: DebugBundleSide, backend
             name,
             DebugTaskHttp::run(url, Some(backend_addrs.clone()), true, fwmark),
         );
+    }
+    #[cfg(target_os = "linux")]
+    crate::linux::debug_bundle::add_linux_debug_tasks(&mut tasks, dir, side);
+    #[cfg(target_os = "windows")]
+    {
+        add_task(&mut tasks, dir, side, "network-adapters", async {
+            tokio::task::spawn_blocking(crate::os::windows::adapters::list_network_adapters)
+                .await?
+                .map_err(Into::into)
+        });
+        let mut command = |name: &str, program: &str, args: &[&str]| {
+            let args = args.iter().map(ToString::to_string).collect();
+            add_task(&mut tasks, dir, side, name, DebugTaskCommand::run(program.to_owned(), args));
+        };
+        command("route-print", "route", &["print"]);
+        command("netsh-ipv4-interfaces", "netsh", &["interface", "ipv4", "show", "interfaces"]);
+        command("netsh-ipv6-interfaces", "netsh", &["interface", "ipv6", "show", "interfaces"]);
+        let mut powershell = |name: &str, script: &str| command(name, "powershell", &["-NoProfile", "-NonInteractive", "-Command", script]);
+        powershell(
+            "firewall-profiles",
+            "Get-NetFirewallProfile -PolicyStore ActiveStore | Format-List Name, Enabled, DefaultInboundAction, DefaultOutboundAction, AllowLocalFirewallRules",
+        );
+        powershell("network-connection-profiles", "Get-NetConnectionProfile | Format-List");
+        powershell(
+            "firewall-tunnel-rule",
+            "Get-NetFirewallRule -PolicyStore ActiveStore -DisplayName 'Obscura VPN Tunnel' | Format-List; Get-NetFirewallRule -PolicyStore ActiveStore -DisplayName 'Obscura VPN Tunnel' | Get-NetFirewallInterfaceFilter | Format-List",
+        );
+        // Test routing. Okay if not reachable.
+        let destinations: Vec<IpAddr> = [
+            IpAddr::V4(std::net::Ipv4Addr::new(1, 1, 1, 1)),
+            IpAddr::V6(std::net::Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1111)),
+        ]
+        .into_iter()
+        .chain(backend_addrs)
+        .collect();
+        add_task(&mut tasks, dir, side, "best-route", async move {
+            Ok(tokio::task::spawn_blocking(move || crate::os::windows::routes::best_routes(&destinations)).await?)
+        });
     }
     join_all(tasks).await;
     tracing::info!(message_id = "bF6nWd4Q", %dir, "debug tasks finished");

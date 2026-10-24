@@ -13,7 +13,30 @@
         <MicaBackdrop />
     </Window.SystemBackdrop>
 
-    <Grid>
+    <Grid x:Name="RootGrid">
+        <Grid.Resources>
+            <!-- Colored text in place of the badge, like the macOS sidebar. The text comes from Tag. -->
+            <Style x:Key="TextInfoBadgeStyle" TargetType="InfoBadge">
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="InfoBadge">
+                            <TextBlock
+                                Text="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}"
+                                Foreground="{TemplateBinding Foreground}"
+                                FontSize="12"
+                                FontWeight="SemiBold"
+                                VerticalAlignment="Center" />
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style x:Key="CautionTextInfoBadgeStyle" TargetType="InfoBadge" BasedOn="{StaticResource TextInfoBadgeStyle}">
+                <Setter Property="Foreground" Value="{ThemeResource SystemFillColorCautionBrush}" />
+            </Style>
+            <Style x:Key="CriticalTextInfoBadgeStyle" TargetType="InfoBadge" BasedOn="{StaticResource TextInfoBadgeStyle}">
+                <Setter Property="Foreground" Value="{ThemeResource SystemFillColorCriticalBrush}" />
+            </Style>
+        </Grid.Resources>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -41,7 +64,7 @@
             PaneDisplayMode="Auto"
             CompactModeThresholdWidth="548"
             ExpandedModeThresholdWidth="671"
-            OpenPaneLength="170">
+            OpenPaneLength="190">
 
             <NavigationView.MenuItems>
                 <NavigationViewItem Content="Connection">
@@ -90,6 +113,14 @@
                         <SymbolIcon Symbol="Setting" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
+                <NavigationViewItem Content="Apps">
+                    <NavigationViewItem.Tag>
+                        <local:NavigationView>Apps</local:NavigationView>
+                    </NavigationViewItem.Tag>
+                    <NavigationViewItem.Icon>
+                        <SymbolIcon Symbol="CellPhone" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
                 <NavigationViewItem
                     x:Name="DeveloperNavItem"
                     Content="Developer"
@@ -111,6 +142,13 @@
                     <NavigationViewItem.Icon>
                         <SymbolIcon Symbol="Contact" />
                     </NavigationViewItem.Icon>
+                    <NavigationViewItem.InfoBadge>
+                        <InfoBadge x:Name="AccountExpiryBadge" Visibility="Collapsed">
+                            <InfoBadge.IconSource>
+                                <SymbolIconSource Symbol="Important" />
+                            </InfoBadge.IconSource>
+                        </InfoBadge>
+                    </NavigationViewItem.InfoBadge>
                 </NavigationViewItem>
             </NavigationView.FooterMenuItems>
 
@@ -208,6 +246,16 @@
                             Orientation="Horizontal"
                             HorizontalAlignment="Center"
                             Spacing="8">
+                            <Button
+                                x:Name="RepairIdentityButton"
+                                Content="Repair app identity"
+                                Style="{ThemeResource AccentButtonStyle}"
+                                Visibility="{x:Bind IdentityRepairVisibility, Mode=OneWay}"
+                                Click="OnRepairIdentityClick" />
+                            <Button
+                                x:Name="CreateDebugBundleButton"
+                                Content="Create Debug Bundle"
+                                Click="OnCreateDebugBundleClick" />
                             <ProgressRing
                                 x:Name="DebugBundleProgressRing"
                                 IsActive="False"
@@ -215,10 +263,6 @@
                                 Width="20"
                                 Height="20"
                                 VerticalAlignment="Center" />
-                            <Button
-                                x:Name="CreateDebugBundleButton"
-                                Content="Create Debug Bundle"
-                                Click="OnCreateDebugBundleClick" />
                             <Button
                                 x:Name="RevealDebugBundleButton"
                                 Content="Reveal in Explorer"
@@ -229,6 +273,14 @@
                                 Visibility="{x:Bind NativeUiErrorDismissVisibility, Mode=OneWay}"
                                 Click="OnDismissErrorsClick" />
                         </StackPanel>
+                        <TextBlock
+                            x:Name="RepairIdentityNote"
+                            Text="This can take up to 30 seconds. Obscura VPN will restart automatically when it finishes."
+                            Style="{ThemeResource CaptionTextBlockStyle}"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            TextWrapping="Wrap"
+                            TextAlignment="Center"
+                            Visibility="Collapsed" />
                     </StackPanel>
                 </Grid>
                 <Grid

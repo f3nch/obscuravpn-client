@@ -10,6 +10,7 @@ import WebKit
 // going to just use UIKit.
 
 class ObscuraUIIOSViewAndTabsViewController: UIViewController {
+    private var appState: AppState
     private var insetBottom = 0.0
     private var isKeyboardOpen = false
     private let webView: ObscuraUIWebView
@@ -27,22 +28,23 @@ class ObscuraUIIOSViewAndTabsViewController: UIViewController {
     private var cancellables = Set<AnyCancellable>()
 
     init(
+        appState: AppState,
         webView: ObscuraUIWebView,
         webviewsController: WebviewsController,
         tabs: OrderedSet<AppView>,
         showTabBar: Bool
     ) {
+        self.appState = appState
         self.showTabBar = showTabBar
         self.webView = webView
         self.tabBar = UITabBar()
         self.webviewsController = webviewsController
         self.tabBarItems = tabs.map { view in
-            let item = UITabBarItem(
+            UITabBarItem(
                 title: view.rawValue.capitalized,
                 image: UIImage(systemName: view.systemImageName),
                 selectedImage: UIImage(systemName: view.systemImageName)
             )
-            return item
         }
         self.tabs = tabs
 
@@ -72,11 +74,20 @@ class ObscuraUIIOSViewAndTabsViewController: UIViewController {
     }
 
     @objc private func keyboardWillShow(notification: NSNotification) {
+        // iOS also delivers keyboard notifications for keyboards belonging to other apps (e.g. when switching in from an app with its keyboard open, or in multitasking). Only our own keyboard should affect the inset.
+        let isLocal = (notification.userInfo?[UIResponder.keyboardIsLocalUserInfoKey] as? Bool) ?? true
+        guard isLocal else { return }
         self.isKeyboardOpen = true
         self.sendSafeArea()
     }
 
     @objc private func keyboardWillHide(notification: NSNotification) {
+        self.isKeyboardOpen = false
+        self.sendSafeArea()
+    }
+
+    @objc private func appDidEnterBackground(notification: NSNotification) {
+        // Our keyboard is dismissed when backgrounded, and a hide notification isn't guaranteed. If focus is restored on return, a fresh local show notification will set this again.
         self.isKeyboardOpen = false
         self.sendSafeArea()
     }
@@ -93,6 +104,12 @@ class ObscuraUIIOSViewAndTabsViewController: UIViewController {
             self,
             selector: #selector(self.keyboardWillHide),
             name: UIResponder.keyboardWillHideNotification,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(self.appDidEnterBackground),
+            name: UIApplication.didEnterBackgroundNotification,
             object: nil
         )
     }
@@ -156,7 +173,7 @@ class ObscuraUIIOSViewAndTabsViewController: UIViewController {
         if let index = tabs.firstIndex(of: view) {
             self.tabBar.selectedItem = self.tabBarItems[index]
         }
-        self.webView.navigateTo(view: view)
+        self.webView.navigateTo(appState: self.appState, view: view)
     }
 }
 
@@ -174,6 +191,7 @@ extension ObscuraUIIOSViewAndTabsViewController: UITabBarDelegate {
 // MARK: - SwiftUI Wrapper
 
 struct ObscuraUIIOSViewAndTabsWrapper: UIViewControllerRepresentable {
+    let appState: AppState
     let webView: ObscuraUIWebView
     let webviewsController: WebviewsController
     let tabs: OrderedSet<AppView>
@@ -181,6 +199,7 @@ struct ObscuraUIIOSViewAndTabsWrapper: UIViewControllerRepresentable {
 
     func makeUIViewController(context: Context) -> ObscuraUIIOSViewAndTabsViewController {
         return ObscuraUIIOSViewAndTabsViewController(
+            appState: self.appState,
             webView: self.webView,
             webviewsController: self.webviewsController,
             tabs: self.tabs,

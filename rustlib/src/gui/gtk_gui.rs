@@ -67,27 +67,30 @@ pub(crate) fn run_gtk_app(
         .flags(gio::ApplicationFlags::HANDLES_OPEN)
         .build();
 
-    let (color_scheme_tx, mut color_scheme_rx) = watch::channel(ui_config.get().color_scheme);
     let (restart_tx, restart_rx) = watch::channel(false);
     let (page_ready_tx, page_ready) = watch::channel(false);
     let command_context = WebviewCmdContext {
         gui_status: gui_status.clone(),
         debug_bundler,
         ui_config,
-        color_scheme: color_scheme_tx,
         restart: restart_tx,
         page_ready: page_ready_tx,
     };
     let (window, sidebar, webview) = build_primary_window(gtk_init, command_context);
 
-    spawn_on_main_thread(main_thread, async move {
-        loop {
-            StyleManager::default().set_color_scheme(match *color_scheme_rx.borrow_and_update() {
-                ColorScheme::Auto => libadwaita::ColorScheme::Default,
-                ColorScheme::Light => libadwaita::ColorScheme::ForceLight,
-                ColorScheme::Dark => libadwaita::ColorScheme::ForceDark,
-            });
-            let Ok(()) = color_scheme_rx.changed().await else { return };
+    spawn_on_main_thread(main_thread, {
+        let gui_status = gui_status.clone();
+        async move {
+            let mut known_version = None;
+            loop {
+                let os_status = gui_status.changed(known_version).await;
+                known_version = Some(os_status.version);
+                StyleManager::default().set_color_scheme(match os_status.color_scheme {
+                    ColorScheme::Auto => libadwaita::ColorScheme::Default,
+                    ColorScheme::Light => libadwaita::ColorScheme::ForceLight,
+                    ColorScheme::Dark => libadwaita::ColorScheme::ForceDark,
+                });
+            }
         }
     });
 
@@ -273,6 +276,7 @@ fn build_primary_window(gtk_init: GtkInitToken, command_context: WebviewCmdConte
     let gui_status = command_context.gui_status.clone();
     let webview = build_webview(gtk_init, command_context);
     webview.set_hexpand(true);
+    webview.set_size_request(500, 525);
     let sidebar = build_sidebar(gui_status, dev_visible.clone());
 
     let split_view = gtk::Box::new(Orientation::Horizontal, 0);
@@ -322,7 +326,8 @@ fn build_sidebar(gui_status: Arc<GuiStatusWatch>, dev_visible: Rc<Cell<bool>>) -
             | NavigationView::Account
             | NavigationView::Settings
             | NavigationView::Help
-            | NavigationView::About,
+            | NavigationView::About
+            | NavigationView::Apps,
         )
         | None => true,
     });
@@ -355,6 +360,7 @@ fn view_row_widget(view: NavigationView) -> gtk::Box {
         NavigationView::Settings => "obscura-settings-symbolic",
         NavigationView::Help => "obscura-help-symbolic",
         NavigationView::About => "obscura-about-symbolic",
+        NavigationView::Apps => "obscura-apps-symbolic",
         NavigationView::Developer => "obscura-developer-symbolic",
     });
     icon.set_pixel_size(24);

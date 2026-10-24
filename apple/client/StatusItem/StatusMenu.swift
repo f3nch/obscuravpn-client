@@ -8,7 +8,7 @@ private let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: 
 private let creatingDebugBundleStr = "Creating Debug Bundle (takes a few minutes)"
 private let createDebugBundleStr = "Create Debug Bundle"
 
-// https://multi.app/blog/pushing-the-limits-nsstatusitem
+/// https://multi.app/blog/pushing-the-limits-nsstatusitem
 final class StatusItemManager: ObservableObject {
     private var hostingView: NSHostingView<StatusItem>
     private var statusItem: NSStatusItem
@@ -30,7 +30,7 @@ final class StatusItemManager: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var accountUpdateTask: Task<Void, Error>?
 
-    // intentionally empty to ensure that the menu item can be highlighted
+    /// intentionally empty to ensure that the menu item can be highlighted
     @objc func emptyAction() {}
 
     init() {
@@ -42,7 +42,8 @@ final class StatusItemManager: ObservableObject {
                 sizePassthrough: self.sizePassthrough,
                 bandwidthStatusModel: self.bandwidthStatusModel,
                 osStatusModel: self.osStatusModel
-            ))
+            )
+        )
         self.hostingView.frame = NSRect(x: 0, y: 0, width: 100, height: 24)
         self.statusItem.button?.frame = self.hostingView.frame
         self.statusItem.button?.addSubview(self.hostingView)
@@ -189,16 +190,13 @@ final class StatusItemManager: ObservableObject {
                             while true {
                                 self?.updateAccountItem()
                                 if let account = appState.status.account {
-                                    if !account.isActive() {
+                                    if !account.isActive {
                                         try await Task.sleep(for: .seconds(30), tolerance: .seconds(10))
                                     } else if account.expiringSoon() {
                                         try await Task.sleep(for: .seconds(60), tolerance: .seconds(30))
                                     } else {
                                         // sleep until we expect account item to show up
-                                        let toppedUpExpirationDate = account.accountInfo.topUp?.creditExpiresAt ?? 0
-                                        let stripeEndDate = account.accountInfo.stripeSubscription?.currentPeriodEnd ?? 0
-                                        let appleEndDate = account.accountInfo.appleSubscription?.renewalTime ?? 0
-                                        let end = max(toppedUpExpirationDate, stripeEndDate, appleEndDate, 0)
+                                        let end = account.periodEnd ?? 0
 
                                         // 60 seconds after threshold (-10 days) timestamp
                                         let sleepUntilTime = end - 10 * 24 * 60 * 60 + 60
@@ -265,9 +263,11 @@ final class StatusItemManager: ObservableObject {
                                 }
                             }
                             self?.bandwidthStatusModel.uploadBandwidth = BandwidthFmt.fromTransferRate(
-                                bytesPerSecond: 0)
+                                bytesPerSecond: 0
+                            )
                             self?.bandwidthStatusModel.downloadBandwidth = BandwidthFmt.fromTransferRate(
-                                bytesPerSecond: 0)
+                                bytesPerSecond: 0
+                            )
                         }
                     }
                 }
@@ -491,7 +491,8 @@ final class StatusItemManager: ObservableObject {
                     _ = try await refreshExitList(appState.manager, freshness: 3600)
                 } catch {
                     logger.error(
-                        "Failed to refresh exit list in status menu: \(error, privacy: .public)")
+                        "Failed to refresh exit list in status menu: \(error, privacy: .public)"
+                    )
                 }
             }
         }
@@ -502,7 +503,7 @@ final class StatusItemManager: ObservableObject {
         if let account = appState.status.account {
             let secondsStamp = UInt64(Date().timeIntervalSince1970)
             var pollAccount = false
-            if (account.accountInfo.periodEndDate == nil || account.accountInfo.periodEndDate! < Date())
+            if (account.periodEndDate == nil || account.periodEndDate! < Date())
                 && secondsStamp - account.lastUpdatedSec > 60 * 5
             {
                 pollAccount = true
@@ -546,7 +547,9 @@ final class StatusItemManager: ObservableObject {
 
 private struct SizePreferenceKey: PreferenceKey {
     static var defaultValue: CGSize = .zero
-    static func reduce(value: inout CGSize, nextValue: () -> CGSize) { value = nextValue() }
+    static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
+        value = nextValue()
+    }
 }
 
 struct StatusItem: View {
@@ -565,7 +568,6 @@ struct StatusItem: View {
         return self.startupModel.appState?.status.vpnStatus
     }
 
-    @ViewBuilder
     var mainContent: some View {
         HStack(spacing: 10) {
             HStack(spacing: 3) {

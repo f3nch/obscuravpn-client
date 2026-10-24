@@ -12,11 +12,12 @@ private let logger = Logger(
     category: "ContentView"
 )
 
-enum AppView: String, Hashable, Identifiable {
+enum AppView: String, Codable, Hashable, Identifiable {
     case account
     case connection
     case location
     case settings
+    case apps
     case help
     case about
     case developer
@@ -39,6 +40,8 @@ enum AppView: String, Hashable, Identifiable {
             "questionmark.circle"
         case .about:
             "info.circle"
+        case .apps:
+            "iphone"
         case .developer:
             "book.and.wrench"
         }
@@ -52,14 +55,14 @@ enum AppView: String, Hashable, Identifiable {
         switch self {
         case .connection, .help:
             false
-        case .account, .settings, .location, .about, .developer:
+        case .account, .settings, .location, .about, .developer, .apps:
             true
         }
     }
 }
 
 let STABLE_VIEWS: OrderedSet<AppView> = OrderedSet([
-    .connection, .location, .account, .settings, .help, .about,
+    .connection, .location, .account, .settings, .help, .about, .apps,
 ])
 
 let EXPERIMETNAL_VIEWS: OrderedSet<AppView> = OrderedSet()
@@ -124,8 +127,8 @@ class ViewModeManager: ObservableObject {
 
 extension AccountStatus {
     var badgeText: String? {
-        guard let days = daysUntilExpiry() else { return nil }
-        if !expiringSoon() {
+        guard let days = self.daysUntilExpiry() else { return nil }
+        if !self.expiringSoon() {
             return nil
         }
         if days > 3 {
@@ -137,11 +140,11 @@ extension AccountStatus {
         if days == 1 {
             return "exp. in 1d"
         }
-        return isActive() ? "exp. today" : "expired"
+        return self.isActive ? "exp. today" : "expired"
     }
 
     var badgeColor: Color? {
-        guard let days = daysUntilExpiry() else { return nil }
+        guard let days = self.daysUntilExpiry() else { return nil }
         return days <= 3 ? .red : .yellow
     }
 }
@@ -166,10 +169,10 @@ struct ContentView: View {
 
     @ObservedObject private var viewMode = ViewModeManager()
 
-    // when this variable is set, force hide the toolbar and show "Obscura" for the navigation title
-    // otherwise let macOS manage the state and let the navigation title be driven from the navigation view shown
+    /// when this variable is set, force hide the toolbar and show "Obscura" for the navigation title
+    /// otherwise let macOS manage the state and let the navigation title be driven from the navigation view shown
     @State private var loginViewShown: Bool
-    // set alongside above, want to hide the sidebar when navigation is not allowed
+    /// set alongside above, want to hide the sidebar when navigation is not allowed
     @State private var splitViewVisibility: NavigationSplitViewVisibility
 
     let accountBadgeTimer = Timer.publish(every: 5, on: .main, in: .common)
@@ -200,7 +203,7 @@ struct ContentView: View {
             )
             .onChange(of: self.webviewsController.tab) { view in
                 // inform webUI to update navigation
-                self.webviewsController.obscuraWebView?.navigateTo(view: view)
+                self.webviewsController.obscuraWebView?.navigateTo(appState: self.appState, view: view)
             }
             .onChange(of: self.appState.status) { status in
                 if let account = self.appState.status.account {
@@ -314,6 +317,7 @@ struct ContentView: View {
                 .animation(nil, value: self.splitViewVisibility)
             #else
                 ObscuraUIIOSViewAndTabsWrapper(
+                    appState: self.appState,
                     webView: obscuraWebView,
                     webviewsController: self.webviewsController,
                     tabs: self.viewMode.getIOSViews(),
@@ -335,15 +339,16 @@ struct ContentView: View {
                     }
                 }
                 .sheet(
-                    isPresented: self.$webviewsController.showModalWebview)
-                {
+                    isPresented: self.$webviewsController.showModalWebview
+                ) {
                     self.webviewsController.externalWebView
                         .ignoresSafeArea()
                         .presentationDetents([.large])
                         .presentationDragIndicator(.visible)
                 }
                 .manageSubscriptionsSheet(
-                    isPresented: self.$webviewsController.showSubscriptionManageSheet)
+                    isPresented: self.$webviewsController.showSubscriptionManageSheet
+                )
                 .offerCodeRedemption(isPresented: self.$appState.showOfferCodeRedemption) { result in
                     switch result {
                     case .success:
@@ -380,8 +385,6 @@ struct ContentView: View {
                     .padding()
                 }
             #endif
-        } else {
-            EmptyView()
         }
     }
 }

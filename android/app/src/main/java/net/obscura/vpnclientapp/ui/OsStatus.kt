@@ -10,6 +10,7 @@ data class OsStatus(
     val osVpnStatus: OsVpnStatus,
     val srcVersion: String,
     val navigationView: NavigationView?,
+    val colorScheme: ColorScheme,
     val updaterStatus: UpdaterStatus,
     val debugBundleStatus: DebugBundleStatus,
     val canSendMail: Boolean,
@@ -17,6 +18,13 @@ data class OsStatus(
     val playBilling: Boolean,
     val privateDnsActive: Boolean,
 ) {
+    @Serializable
+    enum class ColorScheme {
+        @SerialName("light") Light,
+        @SerialName("dark") Dark,
+        @SerialName("auto") Auto,
+    }
+
     // TODO: https://linear.app/soveng/issue/OBS-2640/change-nevpnstatus-to-be-platform-agnostic
     @Serializable
     enum class OsVpnStatus {

@@ -8,8 +8,8 @@ use std::{
 use camino::Utf8PathBuf;
 use obscuravpn_api::{
     cmd::{
-        AppleAssociateAccount, AppleAssociateAccountOutput, Cmd, DeleteAccount, DeleteAccountOutput, ExitList, GetAccountInfo,
-        GoogleAssociateAccount, GoogleBillingDetails, GoogleBillingDetailsOutput,
+        AppleAssociateAccount, AppleAssociateAccountOutput, AuthOptional, Cmd, DeleteAccount, DeleteAccountOutput, ExitList, GetAccountInfo,
+        GoogleAssociateAccount, GoogleBillingDetails, GoogleBillingDetailsOutput, ServiceStatus, ServiceStatusOutput,
     },
     types::{AccountId, AccountInfo, OneExit, OneRelay, WgPubkey},
 };
@@ -69,6 +69,7 @@ pub struct Status {
     pub use_system_dns: bool,
     pub local_network_access: bool,
     pub tailscale_bypass: bool,
+    pub wireguard_bypass: bool,
     pub dns_content_block: DnsContentBlock,
     pub dns_lock_configured: bool,
 }
@@ -88,6 +89,7 @@ impl Status {
             dns_content_block,
             local_network_access,
             tailscale_bypass,
+            wireguard_bypass,
             dns_lock_salt,
             ..
         } = client_state.config();
@@ -108,6 +110,7 @@ impl Status {
             use_system_dns: dns.is_system(),
             local_network_access: local_network_access.is_enabled(),
             tailscale_bypass: tailscale_bypass.is_enabled(),
+            wireguard_bypass: wireguard_bypass.is_enabled(),
             dns_content_block: *dns_content_block,
             dns_lock_configured: dns_lock_salt.is_some(),
         }
@@ -247,6 +250,10 @@ impl Manager {
         self.client_state.api_request(cmd).await
     }
 
+    pub async fn api_request_without_auth<C: Cmd<Auth = AuthOptional>>(&self, cmd: C) -> Result<C::Output, ApiError> {
+        self.client_state.api_request_without_auth(cmd).await
+    }
+
     pub async fn apple_associate_account(&self, app_transaction_jws: String) -> Result<AppleAssociateAccountOutput, ApiError> {
         self.api_request(AppleAssociateAccount { app_transaction_jws }).await
     }
@@ -259,6 +266,10 @@ impl Manager {
         let account_info = self.api_request(GetAccountInfo()).await?;
         self.client_state.update_account_info(&account_info);
         Ok(account_info)
+    }
+
+    pub async fn get_service_status(&self) -> Result<ServiceStatusOutput, ApiError> {
+        self.api_request_without_auth(ServiceStatus {}).await
     }
 
     pub async fn google_associate_account(&self, purchase_token: String, promo_code: Option<String>) -> Result<(), ApiError> {

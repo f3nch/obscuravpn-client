@@ -2,7 +2,7 @@ import { createContext, useContext } from 'react';
 import { ExitSelector, ExitSelectorCity, TunnelArgs } from '../bridge/commands';
 import { HAS_NE_VPN_STATUS } from '../bridge/SystemProvider';
 import { AccountId } from './accountUtils';
-import { AccountInfo, Exit } from './api';
+import { AccountInfo, Exit, ServiceStatusOutput } from './api';
 
 export enum NEVPNStatus {
     Invalid = 'invalid',
@@ -71,7 +71,10 @@ export enum NavigationView {
   Help = "help",
   About = "about",
   Settings = "settings",
+  Apps = "apps",
 }
+
+export type ColorScheme = 'light' | 'dark' | 'auto';
 
 export interface OsStatusShared {
     version: string,
@@ -90,6 +93,7 @@ export interface OsStatusShared {
       error?: string
     },
     navigationView?: NavigationView,
+    colorScheme: ColorScheme,
     // macOS specific (other platforms should specify uninitiated)
     updaterStatus: UpdaterStatus,
     storeKit?: {
@@ -204,6 +208,7 @@ export interface AppStatus {
     useSystemDns: boolean,
     localNetworkAccess: boolean,
     tailscaleBypass: boolean,
+    wireguardBypass: boolean,
     dnsLockConfigured: boolean,
 }
 
@@ -219,6 +224,7 @@ interface IAppContext {
     osStatus: OsStatusWVpnStatus,
     showOfflineUI: boolean,
     accountInfo: AccountInfo | null,
+    apiServiceStatus: ServiceStatusOutput | null,
     connectionInProgress: ConnectionInProgress,
     isProcessingPayment: boolean,
     setPaymentProcessing: (value: boolean) => void

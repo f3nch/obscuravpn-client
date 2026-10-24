@@ -15,7 +15,7 @@ use crate::{config::PinnedLocation, exit_selection::ExitSelectionState};
 use crate::{config::RotationReason, net::NetworkInterface, network_config::DnsConfig, quicwg::QuicWgConnHandshaking, wg_key_store::WgKeyStore};
 use crate::{config::cached::ConfigCached, exit_selection::ExitSelector};
 use crate::{
-    config::{self, Config, ConfigLoadError, LocalNetworkAccess, TailscaleBypass},
+    config::{self, Config, ConfigLoadError, LocalNetworkAccess, TailscaleBypass, WireGuardBypass},
     errors::RelaySelectionError,
     quicwg::QuicWgConn,
 };
@@ -24,8 +24,8 @@ use boringtun::x25519::{PublicKey, StaticSecret};
 use obscuravpn_api::cmd::{CacheWgKey, ETagCmd, ExitList, ListExits2};
 use obscuravpn_api::types::{AccountId, AccountInfo, AuthToken, OneExit};
 use obscuravpn_api::{
-    Client, ClientError,
-    cmd::{ApiErrorKind, Cmd, CreateTunnel, ListRelays},
+    Client, ClientError, Unauthenticated,
+    cmd::{ApiErrorKind, AuthOptional, Cmd, CreateTunnel, ListRelays},
     types::{ObfuscatedTunnelConfig, OneRelay, TunnelConfig},
 };
 use serde::{Deserialize, Serialize};
@@ -120,6 +120,7 @@ impl ClientState {
             },
             local_network_access: self.config.local_network_access,
             tailscale_bypass: self.config.tailscale_bypass,
+            wireguard_bypass: self.config.wireguard_bypass,
         }
     }
 
@@ -131,7 +132,7 @@ impl ClientState {
         self.config.api_url.clone().unwrap_or(DEFAULT_API_URL.to_string())
     }
 
-    fn make_api_client(&self, account_id: AccountId) -> Result<Client, ApiError> {
+    fn make_unauthenticated_api_client(&self) -> Result<Client<Unauthenticated>, ApiError> {
         let base_url = self.base_url();
         let network_interface = self.network_interface.clone();
         let alternative_hosts = vec![self.config.api_host_alternate.clone().unwrap_or_else(|| DEFAULT_API_BACKUP_DOMAIN.into())];
@@ -142,10 +143,9 @@ impl ClientState {
             ?alternative_hosts,
             "creating new API client"
         );
-        Client::new(
+        Client::new_unauthenticated(
             base_url,
             alternative_hosts,
-            account_id,
             &self.user_agent,
             #[cfg(not(any(target_os = "android", target_os = "linux", target_os = "windows")))]
             network_interface.as_ref().map(|i| i.name.as_str()),
@@ -161,6 +161,10 @@ impl ClientState {
         )
         .map_err(ClientError::from)
         .map_err(ApiError::from)
+    }
+
+    fn make_api_client(&self, account_id: AccountId) -> Result<Client, ApiError> {
+        self.make_unauthenticated_api_client().map(|client| client.into_authenticated(account_id))
     }
 }
 
@@ -379,6 +383,10 @@ impl ClientStateHandle {
 
     pub fn set_tailscale_bypass(&self, enable: bool) {
         self.change_config(|config| config.tailscale_bypass = if enable { TailscaleBypass::Enabled } else { TailscaleBypass::Disabled })
+    }
+
+    pub fn set_wireguard_bypass(&self, enable: bool) {
+        self.change_config(|config| config.wireguard_bypass = if enable { WireGuardBypass::Enabled } else { WireGuardBypass::Disabled })
     }
 
     /// Sets (or overwrites) the DNS lock password. The plaintext password is never persisted;
@@ -635,6 +643,10 @@ impl ClientStateHandle {
         Ok((relay, handshaking))
     }
 
+    pub fn make_unauthenticated_api_client(&self) -> Result<Client<Unauthenticated>, ApiError> {
+        self.borrow().make_unauthenticated_api_client()
+    }
+
     pub fn make_api_client(&self, account_id: AccountId) -> Result<Client, ApiError> {
         self.borrow().make_api_client(account_id)
     }
@@ -671,6 +683,11 @@ impl ClientStateHandle {
         let result = api_client.run(cmd).await;
         self.cache_auth_token(&api_client);
         Ok(result?)
+    }
+
+    pub async fn api_request_without_auth<C: Cmd<Auth = AuthOptional>>(&self, cmd: C) -> Result<C::Output, ApiError> {
+        let api_client = self.make_unauthenticated_api_client()?;
+        Ok(api_client.run(cmd).await?)
     }
 
     pub async fn cached_api_request<C: ETagCmd>(&self, cmd: C, etag: Option<&[u8]>) -> Result<obscuravpn_api::Response<C::Output>, ApiError> {

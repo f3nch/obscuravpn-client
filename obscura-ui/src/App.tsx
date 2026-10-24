@@ -11,15 +11,17 @@ import * as commands from './bridge/commands';
 import { HAS_NE_VPN_STATUS, IS_HANDHELD_DEVICE, logReactError, PLATFORM, Platform, useSystemChecks } from './bridge/SystemProvider';
 import { AppContext, AppStatus, ConnectionInProgress, connectionIsIdle, getEffectiveOsStatus, latestAppStatus, linuxDegradation, NavigationView, NEVPNStatus, OsStatus, OsStatusWVpnStatus, windowsDegradation } from './common/appContext';
 import commonClasses from './common/common.module.css';
+import { ServiceStatusOutput } from './common/api';
 import { fmt } from './common/fmt';
 import { NotificationId } from './common/notifIds';
 import { useAsync } from './common/useAsync';
 import { useLoadable } from './common/useLoadable';
+import { useSetAppearance } from './common/useSetAppearance';
 import { MIN_LOAD_MS, normalizeError, showErrorNotification, sleep } from './common/utils';
 import { CColorSchemeContext } from './components/CachedColorScheme';
 import { ScrollableView } from './components/ScrollableView';
 import { VpnError } from './components/VpnErrorFmt';
-import { About, Account, Connection, DeveloperView, FallbackAppRender, Help, Location, LogIn, Settings, SplashScreen } from './views';
+import { About, Account, Connection, DeveloperView, FallbackAppRender, Help, Location, LogIn, Settings, SplashScreen, Apps } from './views';
 
 // imported views need to be added to the `views` list variable
 interface View {
@@ -33,18 +35,10 @@ interface View {
 
 export default function () {
   const { t } = useTranslation();
-  const navigate = useNavigate();
-  const location = useLocation();
   const colorScheme = useContext(CColorSchemeContext);
+  const setAppearance = useSetAppearance();
 
-  const toggleColorScheme = async () => {
-    const newColorScheme = colorScheme === 'dark' ? 'light' : 'dark';
-    try {
-      await commands.setColorScheme(newColorScheme);
-    } catch (e) {
-      console.error('Failed to set theme:', e);
-    }
-  };
+  const toggleColorScheme = () => setAppearance(colorScheme === 'dark' ? 'light' : 'dark');
 
   useSystemChecks();
   useHotkeys([[PLATFORM === Platform.macOS ? 'mod+J' : 'ctrl+J', toggleColorScheme]]);
@@ -57,6 +51,8 @@ export default function () {
   const [appStatus, setStatus] = useState<AppStatus | null>(null);
   const [osStatus, setOsStatus] = useState<OsStatus | null>(null);
   const [isProcessingPayment, setPaymentProcessing] = useState(false);
+  const [apiServiceStatus, setApiServiceStatus] = useState<ServiceStatusOutput | null>(null);
+  const [apiServiceStatusLoaded, setApiServiceStatusLoaded] = useState(false);
   const ignoreConnectingErrors = useRef(false);
 
   const routes: View[] = [
@@ -68,6 +64,7 @@ export default function () {
     { component: Help, path: '/help', needsScroll: false },
     { component: About, path: '/about', needsScroll: true },
     { component: Settings, path: '/settings', needsScroll: true },
+    { component: Apps, path: '/apps', needsScroll: true }
   ];
 
   const isLoggedIn = !!appStatus?.accountId;
@@ -253,6 +250,13 @@ export default function () {
   }, []);
 
   useEffect(() => {
+    commands.getServiceStatus()
+      .then(setApiServiceStatus)
+      .catch(() => setApiServiceStatus(null))
+      .finally(() => setApiServiceStatusLoaded(true));
+  }, []);
+
+  useEffect(() => {
     if (appStatus !== null) handleNewStatus(appStatus);
   }, [appStatus]);
 
@@ -276,39 +280,19 @@ export default function () {
   }, [osStatus]);
 
   async function errorBoundaryOnReset() {
-    if (osStatus?.navigationView) {
-      let targetView: NavigationView;
-      if (osStatus.navigationView === NavigationView.Connection) {
-        targetView = NavigationView.Help;
-      } else {
-        targetView = NavigationView.Connection;
-      }
-      try {
-        await commands.setNavigationView(targetView);
-      } catch (e) {
-        showErrorNotification(t, e, 'navigationFailed');
-      }
-      console.log(`resetting to ${targetView} (osStatus reports ${osStatus.navigationView})`);
-    } else if (location.pathname === '/connection') {
-      window.location.pathname = '/help';
+    let targetView: NavigationView;
+    if (!osStatus?.navigationView || osStatus?.navigationView === NavigationView.Connection) {
+      targetView = NavigationView.Help;
     } else {
-      window.location.pathname = '/';
+      targetView = NavigationView.Connection;
     }
+    try {
+      await commands.setNavigationView(targetView);
+    } catch (e) {
+      showErrorNotification(t, e, 'navigationFailed');
+    }
+    console.log(`resetting to ${targetView} (osStatus reports ${osStatus?.navigationView})`);
   }
-
-  // native driven navigation
-  useEffect(() => {
-    const onNavUpdate = (e: Event) => {
-      if (e instanceof CustomEvent) {
-        console.log(`navigation to ${e.detail}`);
-        navigate(`/${e.detail}`);
-      } else {
-        console.error('expected custom event for navigation purposes, got generic Event');
-      }
-    };
-    window.addEventListener('navUpdate', onNavUpdate);
-    return () => window.removeEventListener('navUpdate', onNavUpdate);
-  }, []);
 
   const onPaymentSucceeded = () => {
     console.log("handling paymentSucceeded event");
@@ -358,7 +342,9 @@ export default function () {
 
   const linuxDegraded = linuxDegradation(osStatus?.serviceStatus);
   const windowsDegraded = windowsDegradation(osStatus?.serviceStatus);
-  if (fetchingStatuses || linuxDegraded || windowsDegraded) {
+  const showLogin = !isLoggedIn || !!showAccountCreation;
+  // The trial flag must resolve before the login button paints, otherwise the label flashes.
+  if (fetchingStatuses || linuxDegraded || windowsDegraded || (showLogin && !apiServiceStatusLoaded)) {
     const effectiveOsStatus = osStatus === null ? null : { ...osStatus, osVpnStatus: getEffectiveOsStatus(osStatus, appStatus) };
     return <SplashScreen osStatus={effectiveOsStatus} linuxDegradation={linuxDegraded} windowsDegradation={windowsDegraded} />;
   }
@@ -367,6 +353,7 @@ export default function () {
 
   const appContext = {
     accountInfo: accountInfo ?? null,
+    apiServiceStatus,
     appStatus,
     connectionInProgress,
     osStatus: { ...osStatus, osVpnStatus },
@@ -381,10 +368,10 @@ export default function () {
     setPaymentProcessing,
   }
 
-  if (!isLoggedIn || showAccountCreation) {
+  if (showLogin) {
     return (
       <AppContext.Provider value={appContext}>
-        <LogIn accountNumber={appStatus.accountId} accountActive={accountInfo?.active} />
+        <LogIn accountNumber={appStatus.accountId} accountActive={accountInfo?.active} trialAvailable={apiServiceStatus?.free_trial.available ?? false} />
       </AppContext.Provider>
     );
   }
@@ -416,7 +403,7 @@ function RenderView({ view }: { view: View }) {
     return <view.component />;
   }
   return (
-    <div className={commonClasses.applyInsets} style={{height: '100vh'}}>
+    <div className={commonClasses.applyInsets} style={{ height: '100vh' }}>
       <view.component />
     </div>
   );

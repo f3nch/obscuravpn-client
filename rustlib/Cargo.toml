@@ -2,7 +2,7 @@
 name = "obscuravpn-client"
 version = "0.1.0"
 edition = "2024"
-license = "PolyForm-Noncommercial-1.0.0"
+license = "GPL-3.0-only WITH GPL-3.0-linking-source-exception"
 autobins = false
 
 [[bin]]
@@ -47,10 +47,12 @@ futures = "0.3.29"
 ipnetwork = { version = "0.21.1", features = ["serde"] }
 libadwaita = { version = "0.7", optional = true }
 libc = "0.2.178"
+quinn = "0.11.12"
+# Not used directly; sets a minimum for quinn's transitive dependency.
+# quinn-udp 0.5.6 regressed upload speeds on Android. This is fixed in 0.5.8 and later.
+# https://github.com/quinn-rs/quinn/issues/2042
+quinn-udp = { version = "0.5.16", default-features = false }
 rand = "0.8.5"
-reqwest = { git = "https://github.com/Sovereign-Engineering/reqwest", rev = "7ba2e76a02454b0fa414e0ddbf8aa609ed05b944", default-features = false, features = [
-    "stream",
-] }
 ring = "0.17.14"
 rustls = "0.23.28"
 semver = "1.0.27"
@@ -94,11 +96,7 @@ rev = "ff3b5555b5b1c4f85ae23d8d4aaf00bea2cd2bf0"
 
 [dependencies.obscuravpn-api]
 git = "https://github.com/Sovereign-Engineering/obscuravpn-api.git"
-rev = "2ca8fb7ccfba4a644d4b4eec9cc0bac37716c49a"
-
-[dependencies.quinn]
-git = "https://github.com/Sovereign-Engineering/quinn.git"
-rev = "8f690a22535dcf2d76c369cadd3f0bec93667a4d"
+rev = "f7578b5b001d1ce881d0f4ae85eebd0d35d1f96b"
 
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
 aws-lc-rs = { version = "*", features = [
@@ -110,7 +108,7 @@ tracing-oslog = "0.3.0"
 [target.'cfg(target_os = "linux")'.dependencies]
 ksni = { version = "0.3.4", default-features = false, features = ["async-io"] }
 nix = { version = "0.31.1", features = ["fs", "socket", "user"] }
-open = "5.3.3"
+open = "5.4.4"
 resvg = { version = "0.47", default-features = false }
 rtnetlink = "0.18.1"
 sd-notify = { version = "0.5.0", features = ["fdstore"] }
@@ -132,11 +130,14 @@ standard_paths = "2.1.0"
 windows = { version = "0.62", features = [
     "Win32_NetworkManagement_IpHelper",
     "Win32_NetworkManagement_Ndis",
+    "Win32_NetworkManagement_WindowsFirewall",
     "Win32_Networking_WinSock",
     "Win32_System_Com",
     "Win32_System_IO",
+    "Win32_System_Ole",
     "Win32_System_Services",
     "Win32_System_Threading",
+    "Win32_System_Variant",
     "Win32_System_WindowsProgramming",
     "Win32_Security",
     "Win32_Security_Authorization",
@@ -159,7 +160,3 @@ ring = "0.17.14"
 
 [features]
 gui = ["dep:gtk4", "dep:libadwaita", "dep:webkit6"]
-
-# Temporary SO_MARK fork. Patches do not propagate, consumers need this entry too.
-[patch.crates-io]
-hyper-util = { git = "https://github.com/Sovereign-Engineering/hyper-util", rev = "f2659bd55b85bf524abac9ab0ce4951bb67077b9" }

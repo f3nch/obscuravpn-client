@@ -30,6 +30,7 @@ pub enum ConnectErrorCode {
     InvalidAccountId,
     NoInternet,
     NoLongerSupported,
+    NoRelay,
     NoSlotsLeft,
     NotLoggedIn,
     Other,
@@ -55,9 +56,12 @@ impl From<&TunnelConnectError> for ConnectErrorCode {
                         NoLongerSupported {} => Self::NoLongerSupported,
                         TunnelLimitExceeded {} => Self::NoSlotsLeft,
                         RateLimitExceeded { pow_challenge: _ } => Self::ApiRateLimitExceeded,
-                        AlreadyReferred {}
+                        AdminNnnCaseNotFound {}
+                        | AllFriendCodesClaimed {}
+                        | AlreadyReferred {}
                         | AssociateAccountConflict {}
                         | BadRequest {}
+                        | IneligibleForFriendCodes {}
                         | IneligibleForReferral {}
                         | InternalError {}
                         | InvalidReferralCode {}
@@ -67,6 +71,12 @@ impl From<&TunnelConnectError> for ConnectErrorCode {
                         | MoneroTopUpNotFound {}
                         | NoApiRoute {}
                         | NoMatchingExit {}
+                        | NnnAlreadySubmitted {}
+                        | NnnShareNotFound {}
+                        | NnnSubmissionsClosed {}
+                        | NnnUnavailable {}
+                        | PayloadTooLarge {}
+                        | RelayUnavailable {}
                         | SaleNotFound {}
                         | SignupLimitExceeded { pow_challenge: _ }
                         | WgKeyRotationRequired {}
@@ -80,6 +90,7 @@ impl From<&TunnelConnectError> for ConnectErrorCode {
                 },
             },
             TunnelConnectError::NoInternet => Self::NoInternet,
+            TunnelConnectError::RelaySelection(RelaySelectionError::NoSuccess) => Self::NoRelay,
             TunnelConnectError::NetworkConfig(_)
             | TunnelConnectError::NoExit
             | TunnelConnectError::SetOsNetworkConfig

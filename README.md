@@ -53,7 +53,15 @@ The network extension manages the virtual device and maintains the tunnel using 
     nix develop --print-build-logs --command just xcode-open
     ```
 1. In Xcode, login with an account with membership in "Sovereign Engineering Inc."
+    - In top status bar go to Xcode > Settings > Apple Accounts > Sign in
 1. Register development machine in Apple Developer portal (can be done in Xcode)
+    1. Double click the "client" name in the folder view on the sidebar
+    1. Go to Signing & Capabilities
+    1. Check Automatically manage signing
+    1. Make sure the team is set to Sovereign Engineering Inc.
+    1. Set target to Dev Client > My Mac or any other buildable target
+    1. Press "Play" aka run project
+    1. Click Register Device
 1. [Enable system extension developer mode](#enabling-system-extension-developer-mode)
 1. Setup Developer ID provisioning profile and codesigning for `Prod Client` build scheme
     1. Go to https://developer.apple.com/account/resources/profiles/list
@@ -61,7 +69,7 @@ The network extension manages the virtual device and maintains the tunnel using 
         - Download "Developer ID: VPN Client App"
     1. Install both provisioning profiles by double-clicking them.
     1. Ask Carl to send the Developer ID codesigning certificate and the corresponding password
-    1. Double click the certificate, enter the password, and install it to your "login" keychain
+    1. Double click the certificate, enter the password, and install it to your "login" keychain which you need to select in the password input screen
 
 ## Building and Running
 
@@ -132,7 +140,7 @@ apksigner sign --ks your-keystore.jks --ks-pass pass:hunter2 --out=obscura-signe
 adb install obscura-signed.apk # Push to your device.
 ```
 
-Instead of `app-foss-release-unsigned` you can also use `app-foss-debug` for the debug build. Note that just the Android portion is a debug build, the Rust core and UI are still release builds.
+Instead of `app-foss-release-unsigned` you can also use `app-foss-debug-unsigned` for the debug build. Note that just the Android portion is a debug build, the Rust core and UI are still release builds.
 
 #### Incremental Builds
 
@@ -193,6 +201,8 @@ You can use `Get-FileHash -Path .\wintun-0.14.1.zip -Algorithm SHA256` to verify
 Extract to `windows/wintun-0.14.1` such that `windows/wintun-0.14.1/bin/arm64/wintun.dll` is a file.
 
 To test the service, if you have sudo enabled (System > Advanced settings), you can run `just service`. Alternatively, open an admin-enabled terminal and run `cargo run --bin obscura service` in the rustlib dir.
+
+To run the debug build while the client is already installed, make sure to stop the Windows service before running the service in debug mode with the debug GUI client.
 
 The default config directory is `%APPDATA%\Obscura`. When testing the service, you may find it beneficial to manually add in an account number to `config.json`.
 
@@ -451,7 +461,8 @@ apt/dnf/pacman repositories:
 It derives the signing key from `linux/signing_keys/current.public.asc` (exporting its secret
 from your gpg keyring) and prompts for its passphrase. Publish the three repository trees it
 produces, `result-linux/dist-prod/{deb,rpm,arch}`, at `https://linux-pkgs.obscura.com/{deb,rpm,arch}`.
-Pass `--test` to build instead with the committed keys in `linux/signing_keys_test/`.
+Pass `--test` to build instead with the committed keys in `linux/signing_keys_test/`. The
+resulting `result-linux/dist-test` repository packages assume the directory is served at `http://10.0.2.2:54321`, which is the host from a QEMU guest with user-mode networking.
 Pass `--dirty` to build production packages from an untagged or modified tree.
 
 ### Signing key rotation

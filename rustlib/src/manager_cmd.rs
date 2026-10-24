@@ -6,7 +6,7 @@ use base64::prelude::*;
 use camino::Utf8PathBuf;
 use obscuravpn_api::{
     ClientError,
-    cmd::{ApiErrorKind, AppleAssociateAccountOutput, DeleteAccountOutput, ExitList, GoogleBillingDetailsOutput},
+    cmd::{ApiErrorKind, AppleAssociateAccountOutput, DeleteAccountOutput, ExitList, GoogleBillingDetailsOutput, ServiceStatusOutput},
     types::{AccountId, AccountInfo},
 };
 use serde::{Deserialize, Serialize};
@@ -93,8 +93,11 @@ impl From<&ApiError> for ManagerCmdErrorCode {
                     ApiErrorKind::SignupLimitExceeded { pow_challenge: _ } => Self::ApiSignupLimitExceeded,
                     ApiErrorKind::InvalidAccountId {} => Self::ApiInvalidAccountId,
                     ApiErrorKind::AccountExpired {}
+                    | ApiErrorKind::AdminNnnCaseNotFound {}
+                    | ApiErrorKind::AllFriendCodesClaimed {}
                     | ApiErrorKind::AlreadyReferred {}
                     | ApiErrorKind::BadRequest {}
+                    | ApiErrorKind::IneligibleForFriendCodes {}
                     | ApiErrorKind::IneligibleForReferral {}
                     | ApiErrorKind::InternalError {}
                     | ApiErrorKind::InvalidReferralCode {}
@@ -104,6 +107,12 @@ impl From<&ApiError> for ManagerCmdErrorCode {
                     | ApiErrorKind::MoneroTopUpNotFound {}
                     | ApiErrorKind::NoApiRoute {}
                     | ApiErrorKind::NoMatchingExit {}
+                    | ApiErrorKind::NnnAlreadySubmitted {}
+                    | ApiErrorKind::NnnShareNotFound {}
+                    | ApiErrorKind::NnnSubmissionsClosed {}
+                    | ApiErrorKind::NnnUnavailable {}
+                    | ApiErrorKind::PayloadTooLarge {}
+                    | ApiErrorKind::RelayUnavailable {}
                     | ApiErrorKind::TunnelLimitExceeded {}
                     | ApiErrorKind::WgKeyRotationRequired {}
                     | ApiErrorKind::Unknown(_) => Self::ApiError,
@@ -136,6 +145,7 @@ pub enum ManagerCmd {
     ApiGoogleBillingDetails {
         promo_code: Option<String>,
     },
+    ApiServiceStatus {},
     CreateDebugBundle {
         user_feedback: Option<String>,
         bundle_info: BundleInfo,
@@ -205,6 +215,9 @@ pub enum ManagerCmd {
     SetTailscaleBypass {
         enable: bool,
     },
+    SetWireGuardBypass {
+        enable: bool,
+    },
     SetDnsLockPassword {
         #[debug("[REDACTED]")]
         password: String,
@@ -230,6 +243,8 @@ pub enum ManagerCmdOk {
     ApiGetAccountInfo(AccountInfo),
     #[from]
     ApiGoogleBillingDetails(GoogleBillingDetailsOutput),
+    #[from]
+    ApiServiceStatus(ServiceStatusOutput),
     #[from]
     Bool(bool),
     CreateDebugBundle(String),
@@ -290,6 +305,7 @@ impl ManagerCmd {
                 map_result(manager.google_associate_account(purchase_token, promo_code).await)
             }
             Self::ApiGoogleBillingDetails { promo_code } => map_result(manager.google_billing_details(promo_code).await),
+            Self::ApiServiceStatus {} => map_result(manager.get_service_status().await),
             Self::SetFeatureFlag { flag, active } => manager.run_on_client_state(|c| c.set_feature_flag(&flag, active)),
             Self::CreateDebugBundle { user_feedback, bundle_info, android_cache_dir } => manager
                 .create_debug_bundle(user_feedback, bundle_info, android_cache_dir)
@@ -347,6 +363,7 @@ impl ManagerCmd {
             Self::SetUseSystemDns { enable } => manager.run_on_client_state(|c| c.set_use_system_dns(enable)),
             Self::SetLocalNetworkAccess { enable } => manager.run_on_client_state(|c| c.set_local_network_access(enable)),
             Self::SetTailscaleBypass { enable } => manager.run_on_client_state(|c| c.set_tailscale_bypass(enable)),
+            Self::SetWireGuardBypass { enable } => manager.run_on_client_state(|c| c.set_wireguard_bypass(enable)),
             Self::SetDnsLockPassword { password } => manager.run_on_client_state(|c| c.set_dns_lock_password(&password)),
             Self::VerifyDnsLockPassword { password } => manager.run_on_client_state(|c| c.verify_dns_lock_password(&password)),
             Self::DisableDnsLock { password } => manager.run_on_client_state(|c| c.disable_dns_lock(&password)),

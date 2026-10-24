@@ -14,6 +14,8 @@ class OsStatus: Encodable {
     var osVpnStatus: NEVPNStatus
     let srcVersion = sourceVersion()
     var strictLeakPrevention: Bool
+    var navigationView: AppView?
+    var colorScheme: AppAppearance = .selected
     var updaterStatus = UpdaterStatus()
     var debugBundleStatus = DebugBundleStatus()
     #if os(macOS)
@@ -53,7 +55,7 @@ class OsStatus: Encodable {
 
         #if os(macOS)
             let loginItemRegistered = isRegisteredAsLoginItem()
-            w.update { value in
+            _ = w.update { value in
                 value.loginItemStatus = LoginItemStatus(registered: loginItemRegistered, error: nil)
             }
         #endif
@@ -119,7 +121,7 @@ class OsStatus: Encodable {
     }
 }
 
-// Remove this once min OS versions become macOS 14 and iOS 17
+/// Remove this once min OS versions become macOS 14 and iOS 17
 extension NWPathMonitor {
     func stream() -> AsyncStream<Network.NWPath> {
         AsyncStream { continuation in

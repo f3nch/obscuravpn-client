@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -65,9 +66,16 @@ public partial class App : Application
     void OnUnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)
     {
         Log.Error("Unhandled Exception", e.Exception);
+        if (_window == null)
+        {
+            // Avoids becoming a zombie process if there is a crash before window creation.
+            return;
+        }
+        // Without this the process terminates as soon as the handler returns.
+        e.Handled = true;
         try
         {
-            _window?.AddNativeUiError($"Unhandled exception: {e.Exception?.ToString() ?? e.Message}", fatal: false);
+            _window.AddNativeUiError($"Unhandled exception: {e.Exception?.ToString() ?? e.Message}", fatal: false);
         }
         catch (Exception ex)
         {
@@ -305,6 +313,34 @@ public partial class App : Application
             Log.Warn($"disconnect on quit failed: {ex.Message}");
         }
         Exit();
+    }
+
+    /// <summary>
+    /// Package identity only attaches at process start, so a repaired registration needs a fresh
+    /// process. AppInstance.Restart terminates this process and waits for it to exit before relaunching,
+    /// The manual fallback (`Process.Start`), releases the key first to avoid racing the single-instance key.
+    /// </summary>
+    internal void Relaunch()
+    {
+        Log.Info("relaunching");
+        // Bounded so a stalled UI dispatcher (see OnRepairIdentityClick) can't block the relaunch.
+        using var iconClosed = new ManualResetEventSlim();
+        _uiDispatcher?.TryEnqueue(() => { _notifyIcon?.Close(); iconClosed.Set(); });
+        iconClosed.Wait(TimeSpan.FromSeconds(2));
+        try
+        {
+            var reason = AppInstance.Restart("");
+            Log.Warn($"AppInstance.Restart failed ({reason}); relaunching manually");
+            AppInstance.GetCurrent().UnregisterKey();
+            Process.Start(new ProcessStartInfo(Environment.ProcessPath!) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"relaunch failed: {ex}");
+            _window?.AddNativeUiError("App identity registered. Please close and reopen Obscura VPN to finish.", fatal: false);
+            return;
+        }
+        Environment.Exit(0);
     }
 
     /// <summary>

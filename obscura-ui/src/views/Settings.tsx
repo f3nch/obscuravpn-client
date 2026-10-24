@@ -1,4 +1,4 @@
-import { Accordion, ActionIcon, Alert, Button, Card, Checkbox, Divider, Group, Modal, PasswordInput, Radio, Stack, Switch, Text, Title, useMantineColorScheme } from '@mantine/core';
+import { Accordion, ActionIcon, Alert, Button, Card, Checkbox, Divider, Group, Modal, PasswordInput, Radio, Stack, Switch, Text, Title } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import React, { ReactNode, useContext, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -13,6 +13,7 @@ import commonClasses from '../common/common.module.css';
 import { useDnsLock } from '../common/dnsLock';
 import { NotificationId } from '../common/notifIds';
 import { useAsync } from '../common/useAsync';
+import { useSetAppearance } from '../common/useSetAppearance';
 import { normalizeError } from '../common/utils';
 import { fmtErrorI18n, TranslationKey } from '../translations/i18n';
 import classes from './Settings.module.css';
@@ -380,6 +381,8 @@ function NetworkSettings() {
           <>
             <Divider w='100%' />
             <TailscaleBypassSwitch />
+            <Divider w='100%' />
+            <WireGuardBypassSwitch />
           </>
         )}
       </Stack>
@@ -425,8 +428,8 @@ function ExperimentalSettings() {
 
 function AppearanceSettings() {
   const { t } = useTranslation();
-  const { setColorScheme } = useMantineColorScheme();
-  const resetMantineColorScheme = () => setColorScheme('auto');
+  const { osStatus } = useContext(AppContext);
+  const setAppearance = useSetAppearance();
 
   return (
     <Card padding='md' radius='md' w='100%' shadow='xs' pb='lg'>
@@ -436,15 +439,8 @@ function AppearanceSettings() {
           {colorSchemeOptions.map(({ colorScheme, i18nKey, icon }) => (
             <ActionIcon
               key={colorScheme}
-              variant='default'
-              onClick={async () => {
-                resetMantineColorScheme();
-                try {
-                  await commands.setColorScheme(colorScheme);
-                } catch (e) {
-                  console.error('Failed to set theme:', e);
-                }
-              }}
+              variant={colorScheme === osStatus.colorScheme ? 'light' : 'default'}
+              onClick={() => setAppearance(colorScheme)}
               h={80}
               w={100}
             >
@@ -508,6 +504,24 @@ function TailscaleBypassSwitch() {
       onChange={(event) => setTailscaleBypass(event.currentTarget.checked)}
       disabled={showLoadingUI}
       label={t('tailscaleBypassLabel')}
+    />
+  );
+}
+
+function WireGuardBypassSwitch() {
+  const { t } = useTranslation();
+  const { appStatus } = useContext(AppContext);
+  const { wireguardBypass } = appStatus;
+  const { showLoadingUI, error, execute: setWireGuardBypass } = commands.useCommand({ command: commands.setWireGuardBypass });
+
+  return (
+    <Switch
+      w='100%'
+      error={error}
+      checked={wireguardBypass}
+      onChange={(event) => setWireGuardBypass(event.currentTarget.checked)}
+      disabled={showLoadingUI}
+      label={t('wireguardBypassLabel')}
     />
   );
 }

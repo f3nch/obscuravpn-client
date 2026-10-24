@@ -23,14 +23,15 @@ import classes from './LoginView.module.css';
 
 interface LogInProps {
   accountNumber: ObscuraAccount.AccountId,
-  accountActive?: boolean
+  accountActive?: boolean,
+  trialAvailable: boolean
 }
 
 const COPY_ACCOUNT_WIDTH = IS_HANDHELD_DEVICE ? 300 : '24ch';
 const BACKGROUND_IMAGE = IS_HANDHELD_DEVICE ? DecoOrangeBottom : DecoOrangeTop;
 const BACKGROUND_POSITION = IS_HANDHELD_DEVICE ? 'bottom' : 'top';
 
-export default function LogIn({ accountNumber, accountActive }: LogInProps) {
+export default function LogIn({ accountNumber, accountActive, trialAvailable }: LogInProps) {
   const { t } = useTranslation();
   const { osStatus } = useContext(AppContext);
   const [loginWaiting, setLoginWaiting] = useState(false);
@@ -40,7 +41,7 @@ export default function LogIn({ accountNumber, accountActive }: LogInProps) {
 
   useEffect(() => {
     if (!!apiError) {
-      const timeoutSeconds = apiError === 'apiSignupLimitExceeded' ? 12 * 3600 : 9;
+      const timeoutSeconds = apiError === 'ipcError-apiSignupLimitExceeded' ? 12 * 3600 : 9;
       setTimeout(() => { setApiError(null) }, timeoutSeconds * 1000)
     }
   }, [apiError]);
@@ -66,7 +67,7 @@ export default function LogIn({ accountNumber, accountActive }: LogInProps) {
             message: t('loginError-unknown'),
             color: 'red'
           });
-        }, 10_000);
+        }, 65_000);
       loginErrorTimeout.current = timeout;
       const minLoad = new Promise(resolve => setTimeout(resolve, MIN_LOAD_MS));
       try {
@@ -134,7 +135,7 @@ export default function LogIn({ accountNumber, accountActive }: LogInProps) {
                     components={[<Anchor href={ObscuraAccount.LEGAL_WEBPAGE} />]}
                   />
                 </Text>
-                <Button onClick={initiateAccountCreation}>{t('Create an Account')}</Button>
+                <Button onClick={initiateAccountCreation}>{trialAvailable ? t('Start Trial') : t('Create an Account')}</Button>
                 {
                   apiError &&
                   <Card shadow='sm' padding='lg' my={0} m={0} radius='md'>
