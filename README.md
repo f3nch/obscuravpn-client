@@ -23,11 +23,36 @@ own internal team and doesn't apply to this fork, but it's kept as-is for refere
 
 Changes made in this fork, relative to upstream.
 
-- **DNS lock** — an optional password requirement to change DNS settings on macOS. The
-  password's salt and hash are stored via the native Rust core (persisted in `config.json`,
-  which is root/admin-owned and shared machine-wide) rather than browser `localStorage`, so
-  the lock applies across every macOS account on the machine and can't be bypassed by a
-  non-admin user simply clearing the app's local data.
+### v1.184-f3nch.1
+
+- Synced with upstream v1.184, plus four later upstream commits including the NNN
+  eligibility fix. Upstream changes since v1.177 that affect macOS include:
+  - the NNN banner and popup
+  - timeouts on the relay handshake steps, and a longer timeout when creating an account
+  - a clearer error when relay selection fails
+  - QR codes for downloading the mobile apps
+  - only reporting "connected" once a ping succeeds
+  - an updated PKI, and updated dependencies (including quinn)
+- Upstream changed its license to GPLv3 (`LICENSE.md` became `LICENSE`), and this
+  fork's `LICENSE` file now carries that license.
+- DNS lock carried forward unchanged. Its settings and commands were merged alongside
+  upstream's new WireGuard bypass setting and service-status command.
+
+### v1.177-f3nch.1.1
+
+- Fixed the Release build's code-signing identity, which had been broken while personal
+  details were being removed from the repo. The build script now looks up the Developer ID
+  identity from the keychain. This release only changes how the app is built; the app itself
+  is unchanged.
+
+### v1.177-f3nch.1
+
+- Synced with upstream v1.177.
+- **DNS lock**: an optional password that must be entered to change DNS settings on
+  macOS. The password's salt and hash are stored via the native Rust core (persisted in
+  `config.json`, which is root/admin-owned and shared machine-wide) rather than in the
+  browser's `localStorage`. So the lock applies to every macOS account on the machine, and a
+  non-admin user can't get past it just by clearing the app's local data.
 
 ## Support
 
