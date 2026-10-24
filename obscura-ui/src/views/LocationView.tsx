@@ -1,13 +1,13 @@
-import { Accordion, ActionIcon, Anchor, Button, Card, Divider, Flex, Grid, Group, Loader, Space, Stack, Text, TextInput, ThemeIcon, Title, useMantineTheme } from '@mantine/core';
+import { Accordion, ActionIcon, Anchor, Button, Card, Divider, Flex, Grid, Group, Loader, Space, Stack, Text, ThemeIcon, Title, useMantineTheme } from '@mantine/core';
 import { useInterval } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { t } from 'i18next';
-import { MouseEvent, useContext, useMemo, useState } from 'react';
+import { MouseEvent, useContext, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
-import { BsPin, BsPinFill, BsSearch, BsShieldFillCheck, BsShieldFillExclamation } from 'react-icons/bs';
+import { BsPin, BsPinFill, BsShieldFillCheck, BsShieldFillExclamation } from 'react-icons/bs';
 import * as commands from '../bridge/commands';
 import { CONNECT_REQUIRES_ONLINE, IS_HANDHELD_DEVICE } from '../bridge/SystemProvider';
-import { accountIsExpired, Exit, getContinent, getExitCountry } from '../common/api';
+import { accountIsExpired, Exit, getExitCountry } from '../common/api';
 import { AppContext, ConnectionInProgress, getCityFromArgs, getCityFromStatus, NEVPNStatus } from '../common/appContext';
 import commonClasses from '../common/common.module.css';
 import { exitCityEquals, exitLocation, exitsSortComparator } from '../common/exitUtils';
@@ -15,7 +15,7 @@ import { KeyedSet } from '../common/KeyedSet';
 import { NotificationId } from '../common/notifIds';
 import { useAsync } from '../common/useAsync';
 import { useExitList } from '../common/useExitList';
-import { fmtTime, normalizedIncludes } from '../common/utils';
+import { fmtTime } from '../common/utils';
 import BoltBadgeAuto from '../components/BoltBadgeAuto';
 import { MobileDrawer } from '../components/ConfirmationDialog';
 import { Flag } from '../components/CountryFlag';
@@ -29,12 +29,11 @@ import OrangeCheckedShield from '../res/orange-checked-shield.svg?react';
 import { fmtErrorI18n } from '../translations/i18n';
 import classes from './Location.module.css';
 
+const ALLOWED_COUNTRY = 'GB';
+
 export default function LocationView() {
     const { t } = useTranslation();
     const { vpnConnected, vpnConnect, connectionInProgress, appStatus } = useContext(AppContext);
-    const [searchQuery, setSearchQuery] = useState('');
-    const searchQueryClean = searchQuery.trim();
-    const theme = useMantineTheme();
 
     const { exitList } = useExitList({
       periodS: 60,
@@ -92,117 +91,30 @@ export default function LocationView() {
     };
 
     const connectedExit = appStatus.vpnStatus.connected?.exit;
-    const locations = exitList ?? [];
     const pinnedLocationSet = new KeyedSet(
       (loc: {country_code: string, city_code: string}) => JSON.stringify([loc.country_code, loc.city_code]),
       appStatus.pinnedLocations,
     );
 
-    // Filter locations based on search query
-    const filteredLocations = useMemo(() => {
-      if (!searchQueryClean) return locations;
-      return locations.filter(exit => {
-        return (
-          normalizedIncludes(searchQueryClean, exit.city_name) ||
-          normalizedIncludes(searchQueryClean, exit.city_code) ||
-          normalizedIncludes(searchQueryClean, exit.country_code) ||
-          normalizedIncludes(searchQueryClean, getExitCountry(exit).name)
-        );
-      });
-    }, [locations, searchQueryClean]);
-
-    const pinnedExits = filteredLocations.filter(exit => pinnedLocationSet.has(exitLocation(exit)));
-
-    let lastChosenJsx = null;
-    const insertedCities = new Set(); // [COUNTRY_CODE, CITY]
-    if (appStatus.lastChosenExit && "city" in appStatus.lastChosenExit) {
-        let lastCity = appStatus.lastChosenExit.city;
-        const exit = filteredLocations.find(l => l.city_code == lastCity.city_code && l.country_code == lastCity.country_code);
-        if (exit !== undefined) {
-            const key = JSON.stringify([exit.country_code, exit.city_name]);
-            if (searchQueryClean) {
-              insertedCities.add(key);
-            }
-            const isConnected = exitCityEquals(lastCity, connectedExit);
-            const isPinned = pinnedLocationSet.has(lastCity);
-            lastChosenJsx = <>
-                {!searchQueryClean && <Text ta='left' w='100%' size='sm' c='green.7' ml='md' fw={600}>{t('lastChosen')}</Text>}
-                <LocationCard exit={exit} togglePin={toggleExitPin} showLastChosen={!!searchQueryClean}
-                    onSelect={() => onExitSelect(exit)} connected={isConnected} pinned={isPinned} />
-            </>;
-        }
-    }
-
-    const pinnedExitsRender = [];
-    if (pinnedExits.length > 0) {
-        if (!searchQueryClean) {
-          pinnedExitsRender.push(<Text key='pinned-heading' ta='left' w='100%' size='sm' c='gray' ml='md' fw={700}>{t('Pinned')}</Text>);
-        }
-        for (const exit of pinnedExits) {
-            const key = JSON.stringify([exit.country_code, exit.city_name]);
-            if (!insertedCities.has(key)) {
-              insertedCities.add(key);
-              const isConnected = exitCityEquals(exit, connectedExit);
-              const isPinned = pinnedLocationSet.has(exitLocation(exit));
-              pinnedExitsRender.push(<LocationCard key={key} exit={exit} togglePin={toggleExitPin}
-                  onSelect={() => onExitSelect(exit)} connected={isConnected} pinned={isPinned} />);
-            }
-        }
-    }
-
-    const exitListRender = [];
-    const insertedContinents = new Set();
-    if (!searchQueryClean) {
-      insertedCities.clear();
-    }
-
-    filteredLocations.sort(exitsSortComparator);
-    for (const exit of filteredLocations.filter((e) => !insertedCities.has(JSON.stringify([e.country_code, e.city_name])))) {
-        const continent = getContinent(getExitCountry(exit));
-        if (!insertedContinents.has(continent)) {
-            exitListRender.push(<Text key={`continent-${continent}`} ta='left' w='100%' size='sm' c='gray' ml='sm' fw={600}>{t(`Continent${continent}`)}</Text>);
-            insertedContinents.add(continent);
-        }
-        const key = JSON.stringify([exit.country_code, exit.city_name]);
-        if (!insertedCities.has(key)) {
-          insertedCities.add(key);
-          const isConnected = exitCityEquals(exit, connectedExit);
-          const isPinned = pinnedLocationSet.has(exitLocation(exit));
-          exitListRender.push(<LocationCard key={key} exit={exit} togglePin={toggleExitPin}
-              onSelect={() => onExitSelect(exit)} connected={isConnected} pinned={isPinned} />);
-        }
-    }
+    // Only United Kingdom exits are offered.
+    const ukLocations = (exitList ?? [])
+      .filter(exit => getExitCountry(exit).iso2 === ALLOWED_COUNTRY)
+      .sort(exitsSortComparator);
 
     return (
         <Stack align='center' gap={10} className={classes.container}>
             <VpnStatusCard />
-            {locations.length === 0 ? <NoExitServers /> :
+            {ukLocations.length === 0 ? <NoExitServers /> :
                 <>
-                  <Group w='100%' justify='space-between'>
-                    <Title order={3} ta='left' fw={600}>
-                      {t('Available Locations')}
-                    </Title>
-                    <TextInput
-                      w={{ base: '100%', xs: 'auto' }}
-                      placeholder={t('searchLocations')}
-                      leftSection={<BsSearch />}
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.currentTarget.value)}
-                      radius='md'
-                      style={{ boxShadow: theme.shadows.sm }}
-                    />
-                  </Group>
+                  <Title order={3} ta='left' fw={600} w='100%'>
+                    {t('Location')}
+                  </Title>
                   <Divider my='xs' w='100%' />
-
-                  {filteredLocations.length === 0 ? (
-                    <Text c='dimmed' size='sm' mt='md'>{t('noLocationsFound')}</Text>
-                  ) : (
-                    <>
-                      {lastChosenJsx}
-                      {pinnedExitsRender}
-                      {exitListRender}
-                    </>
-                  )}
+                  {ukLocations.map(exit => (
+                    <LocationCard key={JSON.stringify([exit.country_code, exit.city_name])} exit={exit} togglePin={toggleExitPin}
+                        onSelect={() => onExitSelect(exit)} connected={exitCityEquals(exit, connectedExit)}
+                        pinned={pinnedLocationSet.has(exitLocation(exit))} />
+                  ))}
                 </>}
         </Stack>
     );
