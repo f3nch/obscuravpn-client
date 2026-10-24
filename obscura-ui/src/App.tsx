@@ -13,6 +13,7 @@ import { AppContext, AppStatus, ConnectionInProgress, connectionIsIdle, getEffec
 import commonClasses from './common/common.module.css';
 import { ServiceStatusOutput } from './common/api';
 import { fmt } from './common/fmt';
+import { confirmLocationPassword } from './common/locationLock';
 import { NotificationId } from './common/notifIds';
 import { useAsync } from './common/useAsync';
 import { useLoadable } from './common/useLoadable';
@@ -74,6 +75,9 @@ export default function () {
   const { execute: disconnect } = commands.useCommand({ command: commands.disconnect, showNotification: true, rethrow: true });
 
   async function tryConnect(exit: commands.ExitSelector) {
+    if (appStatus?.dnsLockConfigured) {
+      if (!(await confirmLocationPassword())) return;
+    }
     setInitiatingExitSelector(exit);
     if (vpnConnected) {
       setConnectionInProgress(ConnectionInProgress.ChangingLocations);
