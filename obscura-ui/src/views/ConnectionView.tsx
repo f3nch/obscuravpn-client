@@ -11,12 +11,10 @@ import { CONNECT_REQUIRES_ONLINE } from '../bridge/SystemProvider';
 import * as ObscuraAccount from '../common/accountUtils';
 import { accountIsExpired, Exit, getContinent, getExitCountry, useReRenderWhenExpired } from '../common/api';
 import { AppContext, ConnectionInProgress, getCityFromStatus, isConnecting, NEVPNStatus, PinnedLocation, useIsConnecting, useIsTransitioning } from '../common/appContext';
-import commonClasses from '../common/common.module.css';
-import { exitCityEquals, exitLocation, exitsSortComparator } from '../common/exitUtils';
+import { exitCityEquals, exitLocation, exitsSortComparator, isAllowedLocation } from '../common/exitUtils';
 import { KeyedSet } from '../common/KeyedSet';
 import { useExitList } from '../common/useExitList';
 import { useCookie } from '../common/utils';
-import BoltBadgeAuto from '../components/BoltBadgeAuto';
 import { CColorSchemeContext } from '../components/CachedColorScheme';
 import { Flag } from '../components/CountryFlag';
 import ExternalLinkIcon from '../components/ExternalLinkIcon';
@@ -143,15 +141,13 @@ export default function Connection() {
 }
 
 /**
- * One of: Quick Connect, Manage Account, Cancel Connecting, Disconnecting (disabled)
+ * One of: Manage Account, Cancel Connecting. Quick connect is removed; connect via the location picker.
  */
 function PrimaryConnectButton() {
   const { t } = useTranslation();
   const theme = useMantineTheme();
-  const { vpnConnected, connectionInProgress, initiatingExitSelector, osStatus, vpnConnect, vpnDisconnect, appStatus } = useContext(AppContext);
-  const { internetAvailable } = osStatus;
+  const { vpnConnected, initiatingExitSelector, osStatus, vpnDisconnect, appStatus } = useContext(AppContext);
   const { account } = appStatus;
-  const connectionTransition = connectionInProgress !== ConnectionInProgress.UNSET;
   const inConnectingState = useIsConnecting();
 
   const accountInfo = account?.account_info ?? null;
@@ -167,16 +163,6 @@ function PrimaryConnectButton() {
 
   if (!vpnConnected && accountInfo !== null && accountHasExpired) {
     return <Button component='a' href={ObscuraAccount.APP_ACCOUNT_TAB}>{t('ManageAccount')}</Button>;
-  }
-
-  const showQuickConnect = !vpnConnected && !connectingToCity && accountInfo !== null && !appStatus.vpnStatus.connecting && osStatus.osVpnStatus === NEVPNStatus.Disconnected;
-  const qcBtnAction = (_: MouseEvent) => vpnConnected ? vpnDisconnect() : vpnConnect({ any: {} });
-  const qcBtnDisabled = (!internetAvailable && CONNECT_REQUIRES_ONLINE) || connectionTransition;
-  const primaryBtnDisconnectProps = (vpnConnected && connectionInProgress !== ConnectionInProgress.Reconnecting) ? theme.other.buttonDisconnectProps : {};
-
-  if (showQuickConnect) {
-    const buttonContent = connectionTransition ? t(connectionInProgress) + '...' : <Group gap={5}><BoltBadgeAuto />{t('QuickConnect')}</Group>;
-    return <Button size='md' className={commonClasses.button} onClick={qcBtnAction} w={BUTTON_WIDTH} disabled={qcBtnDisabled} {...primaryBtnDisconnectProps}>{buttonContent}</Button>
   }
 }
 
@@ -440,7 +426,7 @@ function LocationSelect(): ReactNode {
     const locations = useMemo(() => {
       return new KeyedSet(
         (exit: {country_code: string, city_code: string}) => JSON.stringify([exit.country_code, exit.city_code]),
-        exitList,
+        exitList?.filter(isAllowedLocation),
       );
     }, [exitList]);
 
@@ -466,16 +452,18 @@ function LocationSelect(): ReactNode {
           setSelectedCity(cityExit);
         }
         return;
-      } else if (lastChosenExit && "city" in lastChosenExit) {
+      } else if (lastChosenExit && "city" in lastChosenExit && isAllowedLocation(lastChosenExit.city)) {
         setSelectedCity(lastChosenExit.city);
-      } else if (pinnedLocations.length > 0) {
-        let loc = pinnedLocations[0]!;
-        setSelectedCity({
-          city_code: loc.city_code,
-          country_code: loc.country_code,
-        });
+      } else {
+        const loc = pinnedLocations.find(isAllowedLocation) ?? [...locations].sort(exitsSortComparator)[0];
+        if (loc) {
+          setSelectedCity({
+            city_code: loc.city_code,
+            country_code: loc.country_code,
+          });
+        }
       }
-    }, [isTransitioning, appStatus, connectedExit, lastChosenExit, pinnedLocations]);
+    }, [isTransitioning, appStatus, connectedExit, lastChosenExit, pinnedLocations, locations]);
 
     // need to disable both combo (forces a collapsed dropdown) and button (non-clickable)
     const comboDisabled = (!internetAvailable && CONNECT_REQUIRES_ONLINE) || connectionInProgress !== ConnectionInProgress.UNSET;
@@ -585,9 +573,6 @@ function LocationConnectTopCaption() {
     const { vpnConnected, connectionInProgress } = useContext(AppContext);
     if (vpnConnected && connectionInProgress === ConnectionInProgress.UNSET)
         return <Divider className={classes.locationDividerCaption} my={0} label={<Text c='green.8' fw={550}>{t('connectedTo')}</Text>} labelPosition='center' />;
-
-    if (connectionInProgress === ConnectionInProgress.UNSET && !vpnConnected)
-        return <Divider className={classes.locationDividerCaption} my={0} label={<Text c='gray'>{t('or connect to')}</Text>} labelPosition='center' />;
 
     return <Space h='1.5rem' />;
 }

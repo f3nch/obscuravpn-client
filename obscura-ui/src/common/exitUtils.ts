@@ -39,6 +39,13 @@ export function exitLocation(exit: Exit): PinnedLocation {
   };
 }
 
+/** The only country this build offers exits in. */
+export const ALLOWED_COUNTRY = 'GB';
+
+export function isAllowedLocation(loc: { country_code: string }): boolean {
+  return loc.country_code.toUpperCase() === ALLOWED_COUNTRY;
+}
+
 export function exitCityEquals(left?: ExitSelectorCity, right?: ExitSelectorCity): boolean {
   if (left === undefined || right === undefined) return false;
   return left.country_code === right.country_code && left.city_code === right.city_code;

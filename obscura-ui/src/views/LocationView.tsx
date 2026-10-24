@@ -10,13 +10,12 @@ import { CONNECT_REQUIRES_ONLINE, IS_HANDHELD_DEVICE } from '../bridge/SystemPro
 import { accountIsExpired, Exit, getExitCountry } from '../common/api';
 import { AppContext, ConnectionInProgress, getCityFromArgs, getCityFromStatus, NEVPNStatus } from '../common/appContext';
 import commonClasses from '../common/common.module.css';
-import { exitCityEquals, exitLocation, exitsSortComparator } from '../common/exitUtils';
+import { exitCityEquals, exitLocation, exitsSortComparator, isAllowedLocation } from '../common/exitUtils';
 import { KeyedSet } from '../common/KeyedSet';
 import { NotificationId } from '../common/notifIds';
 import { useAsync } from '../common/useAsync';
 import { useExitList } from '../common/useExitList';
 import { fmtTime } from '../common/utils';
-import BoltBadgeAuto from '../components/BoltBadgeAuto';
 import { MobileDrawer } from '../components/ConfirmationDialog';
 import { Flag } from '../components/CountryFlag';
 import ExternalLinkIcon from '../components/ExternalLinkIcon';
@@ -28,8 +27,6 @@ import EyeSlash from '../res/eye.slash.fill.svg?react';
 import OrangeCheckedShield from '../res/orange-checked-shield.svg?react';
 import { fmtErrorI18n } from '../translations/i18n';
 import classes from './Location.module.css';
-
-const ALLOWED_COUNTRY = 'GB';
 
 export default function LocationView() {
     const { t } = useTranslation();
@@ -98,7 +95,7 @@ export default function LocationView() {
 
     // Only United Kingdom exits are offered.
     const ukLocations = (exitList ?? [])
-      .filter(exit => getExitCountry(exit).iso2 === ALLOWED_COUNTRY)
+      .filter(isAllowedLocation)
       .sort(exitsSortComparator);
 
     return (
@@ -219,7 +216,7 @@ function NoExitServers() {
 function VpnStatusCard() {
     const theme = useMantineTheme();
     const { t } = useTranslation();
-    const { appStatus, vpnConnected, showOfflineUI, osStatus, connectionInProgress, vpnDisconnect, vpnConnect, accountInfo } = useContext(AppContext);
+    const { appStatus, vpnConnected, showOfflineUI, osStatus, connectionInProgress, vpnDisconnect, accountInfo } = useContext(AppContext);
 
     const getStatusTitle = () => {
         if (connectionInProgress !== ConnectionInProgress.UNSET) return t(connectionInProgress) + '...';
@@ -242,13 +239,14 @@ function VpnStatusCard() {
     const isAccountExpired = accountInfo ? accountIsExpired(accountInfo) : false;
     const allowCancel = connectionInProgress === ConnectionInProgress.Connecting || connectionInProgress === ConnectionInProgress.Reconnecting;
     const btnDisabled = !allowCancel && (connectionInProgress === ConnectionInProgress.Disconnecting || connectionInProgress === ConnectionInProgress.ChangingLocations || (showOfflineUI && CONNECT_REQUIRES_ONLINE) || isAccountExpired);
+    // No quick connect: the button only appears to disconnect or cancel.
+    const showButton = vpnConnected || connectionInProgress !== ConnectionInProgress.UNSET;
     const buttonDisconnectProps = ((allowCancel || vpnConnected) && !btnDisabled) ? theme.other.buttonDisconnectProps : {};
 
     const getButtonContent = () => {
         if (allowCancel) return t('Cancel Connecting');
         if (connectionInProgress !== ConnectionInProgress.UNSET) return t(connectionInProgress) + '...';
-        if (vpnConnected) return t('Disconnect');
-        return <Group gap={5} ml={0}><BoltBadgeAuto />{t('QuickConnect')}</Group>;
+        return t('Disconnect');
     };
 
     const btnTitle = () => {
@@ -278,17 +276,13 @@ function VpnStatusCard() {
                       <Text c='gray' size='sm' ml={34}>{getStatusSubtitle()}</Text>
                   </Stack>
                 </Grid.Col>
-                <Grid.Col span='auto'>
+                {showButton && <Grid.Col span='auto'>
                   <Button
                     fullWidth
                     className={commonClasses.button}
                     miw={190}
                     onClick={() => {
-                      if (vpnConnected || allowCancel) {
-                        vpnDisconnect();
-                      } else {
-                        vpnConnect({ any: {} });
-                      }
+                      vpnDisconnect();
                     }}
                     disabled={btnDisabled}
                     title={btnTitle()}
@@ -298,7 +292,7 @@ function VpnStatusCard() {
                   >
                     {getButtonContent()}
                   </Button>
-                </Grid.Col>
+                </Grid.Col>}
             </Grid>
             {osStatus.osVpnStatus !== NEVPNStatus.Disconnected && osStatus.osVpnStatus !== NEVPNStatus.Disconnecting &&
               <>
