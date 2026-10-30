@@ -23,6 +23,12 @@ own internal team and doesn't apply to this fork, but it's kept as-is for refere
 
 Changes made in this fork, relative to upstream.
 
+### v1.185-f3nch.1
+
+- Synced with upstream v1.185. Upstream's only other change restricts the debug bundle
+  command to Android and makes it refuse to overwrite an existing file.
+- The fork's DNS lock, location lock and UK-only changes are carried forward unchanged.
+
 ### v1.184-f3nch.3
 
 - **United Kingdom only**: the Location page and the connection screen's location picker now
